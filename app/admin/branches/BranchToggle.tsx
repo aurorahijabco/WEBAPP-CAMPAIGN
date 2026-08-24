@@ -10,7 +10,11 @@ export function BranchToggle({ branchId, active }: { branchId: string; active: b
   return (
     <button
       disabled={pending}
-      onClick={() => startTransition(() => toggleBranchActive(branchId, !active))}
+      onClick={() => {
+  startTransition(() => {
+    void toggleBranchActive(branchId, !active)
+  })
+}}
       className={cn(
         "rounded-full px-3 py-1.5 text-xs font-semibold",
         active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
