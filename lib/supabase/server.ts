@@ -16,18 +16,31 @@ export async function createClient() {
       cookies: {
         getAll() {
           return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Called from a Server Component without a mutable cookie store
-            // (e.g. during static rendering) — safe to ignore, middleware
-            // refreshes the session on every request anyway.
-          }
-        },
+        },setAll(
+  cookiesToSet: {
+    name: string;
+    value: string;
+    options?: {
+      domain?: string;
+      encode?: (value: string) => string;
+      expires?: Date;
+      httpOnly?: boolean;
+      maxAge?: number;
+      path?: string;
+      sameSite?: boolean | "lax" | "strict" | "none";
+      secure?: boolean;
+    };
+  }[]
+) {
+  try {
+    cookiesToSet.forEach(({ name, value, options }) =>
+      cookieStore.set(name, value, options)
+    );
+  } catch {
+    // The `setAll` method was called from a Server Component.
+    // This can be ignored if middleware refreshes the session.
+  }
+},
       },
     }
   );
