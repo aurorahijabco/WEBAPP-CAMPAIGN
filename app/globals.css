@@ -46,10 +46,14 @@ body {
     @apply px-3.5 py-2 text-xs rounded-xl w-auto;
   }
   .card {
-    @apply rounded-3xl bg-white/90 shadow-card border border-cream-200 p-5;
+    @apply rounded-3xl bg-white/90 shadow-card border border-cream-200 p-5
+           dark:bg-plum-600/60 dark:border-plum-500/40;
   }
   .card-tappable {
     @apply card transition hover:border-gold-400 hover:shadow-pop hover:-translate-y-0.5;
+  }
+  .card-accent {
+    @apply border-l-[3px] border-l-gold-400;
   }
   .badge {
     @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide;
@@ -68,16 +72,28 @@ body {
   }
   .input {
     @apply w-full rounded-2xl border-[1.5px] border-cream-200 bg-cream-50/70 px-4 py-3 text-sm
-           focus:border-gold-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gold-400/25;
+           focus:border-gold-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gold-400/25
+           dark:border-plum-500/40 dark:bg-plum-700/60 dark:text-cream-100 dark:focus:bg-plum-700;
   }
   .label {
-    @apply mb-1.5 block text-sm font-semibold text-plum-400;
+    @apply mb-1.5 block text-sm font-semibold text-plum-400 dark:text-cream-100/70;
   }
   .section-title {
-    @apply flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gold-500;
+    @apply flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gold-500
+           after:h-px after:flex-1 after:bg-cream-200 after:content-[''] dark:after:bg-plum-500/40;
   }
   .stat-box {
-    @apply rounded-2xl border border-cream-200 bg-white p-4;
+    @apply rounded-2xl border border-cream-200 bg-white p-4 dark:bg-plum-600/60 dark:border-plum-500/40;
+  }
+  .kv {
+    @apply flex justify-between gap-3 border-b border-dashed border-cream-200 py-2.5 text-[13px]
+           last:border-none dark:border-plum-500/30;
+  }
+  .kv-k {
+    @apply shrink-0 text-plum-400;
+  }
+  .kv-v {
+    @apply text-right font-semibold;
   }
   .notice {
     @apply flex items-start gap-2.5 rounded-2xl border border-transparent px-3.5 py-3 text-[12.5px] font-medium;
