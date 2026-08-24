@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card } from "@/components/ui/Card";
 import { formatIDR } from "@/lib/utils";
 
 export default async function AdminOverview() {
@@ -19,20 +18,32 @@ export default async function AdminOverview() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl text-plum-600">Overview Campaign</h1>
+      <h1 className="font-display text-2xl text-plum-600 dark:text-cream-100">Overview Campaign</h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card><p className="text-xs text-plum-400">Total Klaim</p><p className="font-display text-2xl">{claimCount ?? 0}</p></Card>
-        <Card><p className="text-xs text-plum-400">Struk Perlu Verifikasi</p><p className="font-display text-2xl">{holdBills ?? 0}</p></Card>
-        <Card><p className="text-xs text-plum-400">Konten Pending</p><p className="font-display text-2xl">{pendingContent ?? 0}</p></Card>
-        <Card><p className="text-xs text-plum-400">Voucher Aktif</p><p className="font-display text-2xl">{active}</p></Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="stat-box">
+          <p className="text-xs font-semibold text-plum-400 dark:text-cream-100/60">Total Klaim</p>
+          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{claimCount ?? 0}</p>
+        </div>
+        <div className="stat-box">
+          <p className="text-xs font-semibold text-plum-400 dark:text-cream-100/60">Struk Perlu Verifikasi</p>
+          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{holdBills ?? 0}</p>
+        </div>
+        <div className="stat-box">
+          <p className="text-xs font-semibold text-plum-400 dark:text-cream-100/60">Konten Pending</p>
+          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{pendingContent ?? 0}</p>
+        </div>
+        <div className="stat-box">
+          <p className="text-xs font-semibold text-plum-400 dark:text-cream-100/60">Voucher Aktif</p>
+          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{active}</p>
+        </div>
       </div>
 
-      <Card>
-        <p className="text-xs text-plum-400">Total Nilai Voucher Ditukarkan</p>
-        <p className="font-display text-3xl text-plum-600">{formatIDR(totalRedeemedValue)}</p>
-        <p className="text-xs text-plum-400 mt-1">{redeemed.length} voucher telah ditukarkan</p>
-      </Card>
+      <div className="card">
+        <p className="text-xs font-semibold text-plum-400 dark:text-cream-100/60">Total Nilai Voucher Ditukarkan</p>
+        <p className="font-display text-3xl font-bold text-plum-600 dark:text-cream-100">{formatIDR(totalRedeemedValue)}</p>
+        <p className="mt-1 text-xs text-plum-400 dark:text-cream-100/60">{redeemed.length} voucher telah ditukarkan</p>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatIDR, formatDate } from "@/lib/utils";
 
@@ -13,20 +12,27 @@ export default async function AdminClaimsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-2xl text-plum-600">Semua Klaim</h1>
-      <div className="space-y-2">
-        {claims?.map((c: any) => (
-          <Card key={c.id} className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-plum-600">{c.profiles?.name} · {c.branches?.name}</p>
-              <p className="text-xs text-plum-400">{formatDate(c.created_at)} · {formatIDR(c.bills?.amount ?? 0)}</p>
-              {c.flagged && <p className="text-xs text-red-600 mt-0.5">⚠ {c.flag_reason}</p>}
+      <h1 className="font-display text-2xl text-plum-600 dark:text-cream-100">Semua Klaim</h1>
+      {claims?.length ? (
+        <div className="card divide-y divide-cream-200 p-2 dark:divide-plum-500/30">
+          {claims.map((c: any) => (
+            <div key={c.id} className="flex items-center justify-between gap-3 px-2.5 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-plum-600 dark:text-cream-100">
+                  {c.profiles?.name} · {c.branches?.name}
+                </p>
+                <p className="text-xs text-plum-400 dark:text-cream-100/60">
+                  {formatDate(c.created_at)} · {formatIDR(c.bills?.amount ?? 0)}
+                </p>
+                {c.flagged && <p className="mt-0.5 text-xs font-semibold text-danger">⚠ {c.flag_reason}</p>}
+              </div>
+              <Badge status={c.purchase_status} />
             </div>
-            <Badge status={c.purchase_status} />
-          </Card>
-        ))}
-        {!claims?.length && <Card className="text-center text-sm text-plum-400">Belum ada klaim.</Card>}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty card">Belum ada klaim.</div>
+      )}
     </div>
   );
 }

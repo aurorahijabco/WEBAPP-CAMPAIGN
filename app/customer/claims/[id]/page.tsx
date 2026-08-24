@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatIDR, formatDate } from "@/lib/utils";
 import { REWARD_TIER_LABELS, ContentType } from "@/types/domain";
@@ -39,45 +38,68 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
   const bill = (claim as any).bills;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-4">
       <div>
-        <h1 className="font-display text-2xl text-plum-600">Detail Klaim</h1>
-        <p className="text-sm text-plum-400">{(claim as any).branches?.name}</p>
+        <h1 className="font-display text-2xl text-plum-600 dark:text-cream-100">Detail Klaim</h1>
+        <p className="text-sm text-plum-400 dark:text-cream-100/70">{(claim as any).branches?.name}</p>
       </div>
 
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-medium text-plum-600">Status Struk</p>
+      <div className="card">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-bold text-plum-600 dark:text-cream-100">Status Struk</p>
           <Badge status={claim.purchase_status} />
         </div>
-        <p className="text-xs text-plum-400">Nominal: {formatIDR(bill?.amount ?? 0)}</p>
-        <p className="text-xs text-plum-400">Diajukan: {formatDate(claim.created_at)}</p>
+        <div className="kv">
+          <p className="kv-k">Nominal</p>
+          <p className="kv-v">{formatIDR(bill?.amount ?? 0)}</p>
+        </div>
+        <div className="kv">
+          <p className="kv-k">Diajukan</p>
+          <p className="kv-v">{formatDate(claim.created_at)}</p>
+        </div>
+
         {claim.flagged && (
-          <p className="mt-2 text-xs text-red-600">
-            ⚠ {claim.flag_reason ?? "Klaim ini ditandai untuk review tambahan oleh admin."}
-          </p>
+          <div className="notice notice-danger mt-3">
+            <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v4M12 16h.01" />
+            </svg>
+            <span>{claim.flag_reason ?? "Klaim ini ditandai untuk review tambahan oleh admin."}</span>
+          </div>
         )}
         {claim.purchase_status === "HOLD" && (
-          <p className="mt-2 text-xs text-amber-600">Struk sedang diverifikasi oleh tim Aurora Hijab.</p>
+          <div className="notice notice-warn mt-3">
+            <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 3" />
+            </svg>
+            <span>Struk sedang diverifikasi oleh tim Aurora Hijab.</span>
+          </div>
         )}
         {claim.purchase_status === "INVALID" && (
-          <p className="mt-2 text-xs text-red-600">Struk ditolak. Hubungi CS Aurora Hijab jika ini keliru.</p>
+          <div className="notice notice-danger mt-3">
+            <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+            <span>Struk ditolak. Hubungi CS Aurora Hijab jika ini keliru.</span>
+          </div>
         )}
-      </Card>
+      </div>
 
       {voucher && (
-        <Card className="bg-gold-400/10 border-gold-400">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-medium text-plum-600">Voucher Kamu</p>
+        <div className="ticket">
+          <div className="flex items-start justify-between gap-2.5 px-[18px] pb-3.5 pt-[18px]">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-rose-200">Voucher Kamu</p>
             <Badge status={voucher.status} />
           </div>
-          <p className="font-display text-2xl text-plum-600">{formatIDR(voucher.value)}</p>
-          <p className="text-xs text-plum-400">Kode: {voucher.code}</p>
-        </Card>
+          <p className="px-[18px] pb-[18px] font-mono text-2xl font-bold text-gold-400">{formatIDR(voucher.value)}</p>
+          <div className="ticket-perf" />
+          <p className="px-[18px] py-3.5 font-mono text-[13px] text-white/90">{voucher.code}</p>
+        </div>
       )}
 
       <div>
-        <h2 className="font-display text-lg text-plum-600 mb-3">Progress Konten</h2>
+        <p className="section-title mb-3">Progress Konten</p>
         <div className="space-y-3">
           {TIERS.map((tier) => {
             const tierSubs = submissions?.filter((s) => s.type === tier) ?? [];
@@ -86,25 +108,29 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
             const canSubmit = claim.purchase_status !== "INVALID" && !approved;
 
             return (
-              <Card key={tier}>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-plum-600">{REWARD_TIER_LABELS[tier]}</p>
-                  {latest ? <Badge status={latest.status} /> : <span className="text-xs text-plum-400">Belum diajukan</span>}
+              <div key={tier} className="card">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-bold text-plum-600 dark:text-cream-100">{REWARD_TIER_LABELS[tier]}</p>
+                  {latest ? (
+                    <Badge status={latest.status} />
+                  ) : (
+                    <span className="text-xs font-semibold text-plum-400 dark:text-cream-100/50">Belum diajukan</span>
+                  )}
                 </div>
 
                 {tierSubs.length > 0 && (
-                  <ul className="mb-3 space-y-1">
+                  <ul className="mb-3 space-y-1.5">
                     {tierSubs.map((s) => (
-                      <li key={s.id} className="text-xs text-plum-400">
-                        <a href={s.url} target="_blank" rel="noreferrer" className="underline break-all">
+                      <li key={s.id} className="text-xs text-plum-400 dark:text-cream-100/60">
+                        <a href={s.url} target="_blank" rel="noreferrer" className="break-all font-medium text-plum-600 underline dark:text-cream-100">
                           {s.url}
                         </a>{" "}
                         — {s.platform} · {formatDate(s.submitted_at)}
                         {s.status === "REJECTED" && s.reason && (
-                          <p className="text-red-600 mt-0.5">Alasan: {s.reason}</p>
+                          <p className="mt-0.5 font-semibold text-danger">Alasan: {s.reason}</p>
                         )}
                         {s.status === "HOLD" && s.reason && (
-                          <p className="text-amber-600 mt-0.5">Catatan: {s.reason}</p>
+                          <p className="mt-0.5 font-semibold text-warn">Catatan: {s.reason}</p>
                         )}
                       </li>
                     ))}
@@ -112,7 +138,7 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
                 )}
 
                 {canSubmit && <ContentForm claimId={claim.id} type={tier} />}
-              </Card>
+              </div>
             );
           })}
         </div>

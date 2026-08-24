@@ -53,10 +53,13 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  const isProtected =
-    path.startsWith("/customer") ||
-    path.startsWith("/agent") ||
-    path.startsWith("/admin");
+  // Match "/admin" and "/admin/…" but not "/admin-login" (same for
+  // agent/customer) — a naive startsWith() here previously caused
+  // /agent-login and /admin-login to be treated as protected routes,
+  // redirecting an unauthenticated visitor back to themselves in an
+  // infinite loop and making it impossible to ever log in as agent/admin.
+  const protectedPrefixes = ["/customer", "/agent", "/admin"];
+  const isProtected = protectedPrefixes.some((p) => path === p || path.startsWith(`${p}/`));
 
   if (isProtected && !user) {
     const redirectTo = path.startsWith("/agent")

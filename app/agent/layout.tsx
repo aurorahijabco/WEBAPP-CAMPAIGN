@@ -22,17 +22,17 @@ export default async function AgentLayout({ children }: { children: React.ReactN
     .single();
 
   return (
-    <div className="min-h-screen bg-cream-50 flex flex-col md:flex-row">
+    <div className="flex min-h-screen flex-col bg-cream-50 dark:bg-plum-900 md:flex-row">
       <SidebarNav title="Agent Panel" items={NAV} />
       <div className="flex-1">
-        <header className="flex items-center justify-between border-b border-cream-200 bg-white/70 px-6 py-4">
+        <header className="flex items-center justify-between border-b border-cream-200 bg-white/70 px-6 py-4 dark:border-plum-500/30 dark:bg-plum-700/40">
           <div>
-            <p className="text-sm font-medium text-plum-600">{profile?.name}</p>
-            <p className="text-xs text-plum-400">{(profile as any)?.branches?.name ?? "Cabang belum diatur"}</p>
+            <p className="text-sm font-bold text-plum-600 dark:text-cream-100">{profile?.name}</p>
+            <p className="text-xs text-plum-400 dark:text-cream-100/60">{(profile as any)?.branches?.name ?? "Cabang belum diatur"}</p>
           </div>
           <LogoutButton className="btn-outline text-xs px-3 py-1.5" />
         </header>
-        <main className="p-6 max-w-3xl mx-auto">{children}</main>
+        <main className="mx-auto max-w-3xl p-4 sm:p-6 lg:max-w-4xl">{children}</main>
       </div>
     </div>
   );

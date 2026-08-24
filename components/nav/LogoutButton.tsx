@@ -3,7 +3,15 @@
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-export function LogoutButton({ className }: { className?: string }) {
+export function LogoutButton({
+  className,
+  children,
+  "aria-label": ariaLabel,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+  "aria-label"?: string;
+}) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -14,8 +22,8 @@ export function LogoutButton({ className }: { className?: string }) {
   }
 
   return (
-    <button onClick={handleLogout} className={className ?? "btn-outline"}>
-      Keluar
+    <button onClick={handleLogout} className={className ?? "btn-outline"} aria-label={ariaLabel}>
+      {children ?? "Keluar"}
     </button>
   );
 }

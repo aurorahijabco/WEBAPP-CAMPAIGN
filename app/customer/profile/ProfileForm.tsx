@@ -4,14 +4,13 @@ import { useActionState } from "react";
 import { updateProfile } from "./actions";
 import { Input, Label, FieldError } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Profile } from "@/types/domain";
 
 export function ProfileForm({ profile, email }: { profile: Profile; email: string }) {
   const [state, formAction, pending] = useActionState(updateProfile, undefined);
 
   return (
-    <Card>
+    <div className="card sm:p-7">
       <form action={formAction} className="space-y-4">
         <div>
           <Label>Email</Label>
@@ -31,12 +30,12 @@ export function ProfileForm({ profile, email }: { profile: Profile; email: strin
         </div>
 
         <FieldError message={state?.error} />
-        {state?.success && <p className="text-xs text-green-600">{state.success}</p>}
+        {state?.success && <p className="text-xs font-semibold text-success">{state.success}</p>}
 
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? "Menyimpan..." : "Simpan Perubahan"}
         </Button>
       </form>
-    </Card>
+    </div>
   );
 }

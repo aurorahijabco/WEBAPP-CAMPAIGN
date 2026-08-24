@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { createClaim } from "@/app/customer/actions";
 import { Input, Label, Select, FieldError } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { FileUploadZone } from "@/components/ui/FileUploadZone";
 
 type Branch = { id: string; name: string };
 type ItemRow = { name: string; qty: number; price: number };
@@ -37,7 +37,7 @@ export function NewClaimForm({ branches }: { branches: Branch[] }) {
       <div className="space-y-2">
         <Label>Item Pembelian</Label>
         {items.map((item, i) => (
-          <Card key={i} className="p-3 space-y-2">
+          <div key={i} className="space-y-2 rounded-2xl border border-cream-200 p-3 dark:border-plum-500/30">
             <Input
               name="itemName"
               placeholder="Nama item"
@@ -65,12 +65,12 @@ export function NewClaimForm({ branches }: { branches: Branch[] }) {
                 required
               />
             </div>
-          </Card>
+          </div>
         ))}
         <button
           type="button"
           onClick={() => setItems((p) => [...p, { name: "", qty: 1, price: 0 }])}
-          className="text-sm text-plum-600 underline"
+          className="text-sm font-bold text-gold-500 underline underline-offset-2"
         >
           + Tambah item
         </button>
@@ -78,8 +78,7 @@ export function NewClaimForm({ branches }: { branches: Branch[] }) {
 
       <div>
         <Label htmlFor="photo">Foto Struk</Label>
-        <Input id="photo" name="photo" type="file" accept="image/*" required />
-        <p className="mt-1 text-xs text-plum-400">Maksimal 5MB. Pastikan struk terbaca jelas.</p>
+        <FileUploadZone id="photo" name="photo" required />
       </div>
 
       <FieldError message={state?.error} />

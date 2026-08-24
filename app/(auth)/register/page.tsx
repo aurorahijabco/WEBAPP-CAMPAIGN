@@ -5,74 +5,82 @@ import Link from "next/link";
 import { registerCustomer } from "../actions";
 import { Input, Label } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { AuthShell } from "@/components/AuthShell";
 
 export default function RegisterPage() {
   const [state, formAction, pending] = useActionState(registerCustomer, undefined);
 
   return (
-    <main className="min-h-screen bg-cream-50 flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md card">
-        <h1 className="font-display text-2xl text-plum-600 mb-1">Daftar Akun</h1>
-        <p className="text-sm text-plum-400 mb-6">Buat akun untuk mulai klaim voucher Aurora Hijab.</p>
-
-        <form action={formAction} className="space-y-4">
-          <div>
-            <Label htmlFor="name">Nama Lengkap</Label>
-            <Input id="name" name="name" required minLength={3} />
-          </div>
-          <div>
-            <Label htmlFor="username">Username</Label>
-            <Input id="username" name="username" required minLength={3} pattern="[a-z0-9_]+" />
-          </div>
-          <div>
-            <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
-            <Input id="whatsapp" name="whatsapp" required placeholder="+62812xxxxxxx" />
-          </div>
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" required />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" required minLength={8} />
-          </div>
-          <label className="flex items-start gap-2 text-sm text-plum-500">
-            <input type="checkbox" name="agreedSk" required className="mt-1" />
-            Saya menyetujui{" "}
-            <Link href="/#terms" className="underline text-plum-600">
-              Syarat &amp; Ketentuan
-            </Link>{" "}
-            campaign Aurora Hijab.
-          </label>
-
-          {state?.error && (
-            <div
-              role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
-            >
-              {state.error}
-            </div>
-          )}
-          {state?.notice && (
-            <div
-              role="status"
-              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700"
-            >
-              {state.notice}
-            </div>
-          )}
-          <Button type="submit" disabled={pending} className="w-full">
-            {pending ? "Memproses..." : "Daftar"}
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-plum-400">
+    <AuthShell
+      title="Buat Akun"
+      subtitle="Cepat dan mudah — langsung bisa mulai klaim reward."
+      footer={
+        <>
           Sudah punya akun?{" "}
-          <Link href="/login" className="text-plum-600 font-medium underline">
-            Masuk
+          <Link href="/login" className="font-bold text-gold-500 underline underline-offset-2">
+            Masuk di sini
           </Link>
-        </p>
-      </div>
-    </main>
+        </>
+      }
+    >
+      <form action={formAction} className="space-y-4">
+        <div>
+          <Label htmlFor="name">Nama Lengkap</Label>
+          <Input id="name" name="name" required minLength={3} placeholder="Nama sesuai identitas" />
+        </div>
+        <div>
+          <Label htmlFor="username">Username</Label>
+          <Input id="username" name="username" required minLength={3} pattern="[a-z0-9_]+" placeholder="Username unik" />
+        </div>
+        <div>
+          <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
+          <Input id="whatsapp" name="whatsapp" required placeholder="+62812xxxxxxx" />
+        </div>
+        <div>
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" required />
+        </div>
+        <div>
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" name="password" type="password" required minLength={8} />
+        </div>
+
+        <label className="flex items-start gap-3 rounded-2xl border-[1.5px] border-cream-200 p-3.5 text-sm dark:border-plum-500/40">
+          <input type="checkbox" name="agreedSk" required className="mt-1 h-[19px] w-[19px] accent-gold-500" />
+          <span>
+            <span className="block font-bold text-plum-600 dark:text-cream-100">
+              Saya telah membaca dan menyetujui Syarat &amp; Ketentuan
+            </span>
+            <span className="mt-0.5 block text-[11.5px] text-plum-400 dark:text-cream-100/70">
+              Termasuk wajib mention @aurorahijab.co, konten orisinal, dan penggunaan voucher hanya untuk Series
+              Sarimbit di cabang tempat klaim.{" "}
+              <Link href="/#sk" className="font-bold text-gold-500 underline underline-offset-2">
+                Baca S&amp;K
+              </Link>
+            </span>
+          </span>
+        </label>
+
+        {state?.error && (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-danger/40 dark:bg-danger-bg/20 dark:text-danger"
+          >
+            {state.error}
+          </div>
+        )}
+        {state?.notice && (
+          <div
+            role="status"
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 dark:border-success/40 dark:bg-success-bg/20 dark:text-success"
+          >
+            {state.notice}
+          </div>
+        )}
+        <Button type="submit" disabled={pending} className="w-full">
+          {pending ? "Memproses..." : "Daftar & Lanjutkan"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
