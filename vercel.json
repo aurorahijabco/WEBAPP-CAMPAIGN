@@ -1,5 +1,8 @@
 {
   "crons": [
-    { "path": "/api/cron/sweep-voucher-phase", "schedule": "*/15 * * * *" }
+    {
+      "path": "/api/cron/sweep-voucher-phase",
+      "schedule": "0 0 * * *"
+    }
   ]
 }
