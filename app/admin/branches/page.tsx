@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card } from "@/components/ui/Card";
 import { BranchToggle } from "./BranchToggle";
 
 export default async function AdminBranchesPage() {
@@ -8,16 +7,18 @@ export default async function AdminBranchesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-2xl text-plum-600">Daftar Cabang</h1>
-      <div className="space-y-2">
+      <h1 className="font-display text-2xl text-plum-600 dark:text-cream-100">Daftar Cabang</h1>
+      <div className="card divide-y divide-cream-200 p-2 dark:divide-plum-500/30">
         {branches?.map((b) => (
-          <Card key={b.id} className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-plum-600">{b.name}</p>
-              <p className="text-xs text-plum-400">{b.code} · {b.address}</p>
+          <div key={b.id} className="flex items-center justify-between gap-3 px-2.5 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-plum-600 dark:text-cream-100">{b.name}</p>
+              <p className="text-xs text-plum-400 dark:text-cream-100/60">
+                {b.code} · {b.address}
+              </p>
             </div>
             <BranchToggle branchId={b.id} active={b.active} />
-          </Card>
+          </div>
         ))}
       </div>
     </div>

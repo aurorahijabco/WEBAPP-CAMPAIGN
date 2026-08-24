@@ -48,7 +48,12 @@ async function createUser({ email, password, name, username, whatsapp, role, bra
     branch_id = branch.id;
   }
 
-  const { error: profileErr } = await admin.from("profiles").insert({
+  // createUser() above fires the public.handle_new_user() DB trigger, which
+  // already inserts a minimal profiles row (name/username derived from
+  // email since no raw_user_meta_data is passed here). Upsert instead of
+  // insert so this fills in the real role-specific fields instead of
+  // colliding with that row on the id primary key.
+  const { error: profileErr } = await admin.from("profiles").upsert({
     id: userRes.user.id,
     role,
     name,

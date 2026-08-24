@@ -11,6 +11,21 @@
 
 html {
   -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+/* Safety net: any inline icon svg without an explicit stroke/fill falls
+   back to inheriting the current text color, instead of rendering
+   invisible (SVG's default `stroke` is `none`). */
+svg {
+  stroke: currentColor;
+  fill: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {
@@ -108,5 +123,11 @@ body {
   }
   .ticket-perf {
     @apply relative border-t-2 border-dashed border-white/25;
+  }
+  .empty {
+    @apply py-11 px-5 text-center text-plum-400 dark:text-cream-100/60;
+  }
+  .list-row {
+    @apply flex items-center gap-3 rounded-2xl px-2.5 py-3 transition hover:bg-cream-50 dark:hover:bg-plum-700/40;
   }
 }

@@ -23,5 +23,5 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
 
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="mt-1 text-xs font-medium text-red-600">{message}</p>;
+  return <p className="mt-1 text-xs font-semibold text-danger">{message}</p>;
 }

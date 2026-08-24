@@ -4,7 +4,6 @@ import { useActionState, useState } from "react";
 import { redeemVoucher } from "@/app/agent/actions";
 import { Input, Label, FieldError } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { REDEEM_PRODUCT_NAME, REDEEM_PRODUCT_REFERENCE_PRICE } from "@/lib/constants";
 
 export function RedeemForm() {
@@ -12,7 +11,7 @@ export function RedeemForm() {
   const [confirmed, setConfirmed] = useState(false);
 
   return (
-    <Card>
+    <div className="card sm:p-7">
       <form action={formAction} className="space-y-4">
         <div>
           <Label htmlFor="code">Kode Voucher</Label>
@@ -36,27 +35,34 @@ export function RedeemForm() {
           />
         </div>
 
-        <label className="flex items-start gap-2 text-sm text-plum-500">
+        <label className="flex items-start gap-3 rounded-2xl border-[1.5px] border-cream-200 p-3.5 text-sm dark:border-plum-500/40">
           <input
             type="checkbox"
             checked={confirmed}
             onChange={(e) => setConfirmed(e.target.checked)}
-            className="mt-1"
+            className="mt-1 h-[19px] w-[19px] accent-gold-500"
           />
-          Saya sudah memverifikasi identitas pelanggan dan produk {REDEEM_PRODUCT_NAME} yang diambil.
+          <span className="text-plum-600 dark:text-cream-100">
+            Saya sudah memverifikasi identitas pelanggan dan produk {REDEEM_PRODUCT_NAME} yang diambil.
+          </span>
         </label>
 
         <FieldError message={state?.error} />
         {state?.success && (
-          <p className="text-sm font-medium text-green-600">
-            {state.success} Kode: {state.voucher?.code}
-          </p>
+          <div className="notice notice-success">
+            <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+            <span>
+              {state.success} Kode: {state.voucher?.code}
+            </span>
+          </div>
         )}
 
         <Button type="submit" disabled={pending || !confirmed} className="w-full">
           {pending ? "Memproses..." : "Konfirmasi Redeem"}
         </Button>
       </form>
-    </Card>
+    </div>
   );
 }

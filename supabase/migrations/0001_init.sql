@@ -252,10 +252,12 @@ drop policy if exists profiles_insert_self on public.profiles;
 create policy profiles_insert_self on public.profiles
   for insert with check (id = auth.uid());
 
--- campaign_settings: readable by all authenticated users, writable by admin only
+-- campaign_settings: publicly readable (redemption period, reward tiers, etc.
+-- are marketing copy shown on the public landing page before login), writable
+-- by admin only.
 drop policy if exists settings_select on public.campaign_settings;
 create policy settings_select on public.campaign_settings
-  for select using (auth.role() = 'authenticated');
+  for select using (true);
 
 drop policy if exists settings_admin_write on public.campaign_settings;
 create policy settings_admin_write on public.campaign_settings

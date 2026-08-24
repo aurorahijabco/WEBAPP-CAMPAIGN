@@ -16,8 +16,8 @@ export function BranchToggle({ branchId, active }: { branchId: string; active: b
   })
 }}
       className={cn(
-        "rounded-full px-3 py-1.5 text-xs font-semibold",
-        active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+        "shrink-0 rounded-full px-3 py-1.5 text-xs font-bold",
+        active ? "bg-success-bg text-success" : "bg-cream-100 text-plum-400 dark:bg-plum-500/20 dark:text-cream-100/60"
       )}
     >
       {active ? "Aktif" : "Nonaktif"}

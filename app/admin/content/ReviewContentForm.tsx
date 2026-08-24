@@ -11,7 +11,7 @@ export function ReviewContentForm({ submissionId }: { submissionId: string }) {
   const [reasonPreset, setReasonPreset] = useState("");
 
   return (
-    <form action={formAction} className="mt-3 space-y-2 border-t border-cream-200 pt-3">
+    <form action={formAction} className="mt-3 space-y-2 border-t border-cream-200 pt-3 dark:border-plum-500/30">
       <input type="hidden" name="submissionId" value={submissionId} />
 
       <Select
@@ -26,16 +26,16 @@ export function ReviewContentForm({ submissionId }: { submissionId: string }) {
       </Select>
       <Textarea name="reason" defaultValue={reasonPreset} placeholder="Alasan (wajib untuk HOLD/REJECTED)" className="min-h-[60px] text-xs" />
 
-      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+      {state?.error && <p className="text-xs font-semibold text-danger">{state.error}</p>}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" name="status" value="APPROVED" disabled={pending} className="text-xs px-3 py-2">
+        <Button type="submit" name="status" value="APPROVED" size="sm" disabled={pending}>
           ✓ Approve
         </Button>
-        <Button type="submit" name="status" value="HOLD" variant="outline" disabled={pending} className="text-xs px-3 py-2 border-amber-400 text-amber-600">
+        <Button type="submit" name="status" value="HOLD" variant="outline" size="sm" disabled={pending} className="border-warn/50 text-warn">
           ⏸ Hold
         </Button>
-        <Button type="submit" name="status" value="REJECTED" variant="outline" disabled={pending} className="text-xs px-3 py-2 border-red-400 text-red-600">
+        <Button type="submit" name="status" value="REJECTED" variant="danger" size="sm" disabled={pending}>
           ✕ Reject
         </Button>
       </div>

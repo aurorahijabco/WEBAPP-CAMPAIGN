@@ -23,14 +23,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (profile?.role !== "admin") redirect("/admin-login");
 
   return (
-    <div className="min-h-screen bg-cream-50 flex flex-col md:flex-row">
+    <div className="flex min-h-screen flex-col bg-cream-50 dark:bg-plum-900 md:flex-row">
       <SidebarNav title="Super Admin" items={NAV} />
       <div className="flex-1">
-        <header className="flex items-center justify-between border-b border-cream-200 bg-white/70 px-6 py-4">
-          <p className="text-sm font-medium text-plum-600">{profile?.name}</p>
+        <header className="flex items-center justify-between border-b border-cream-200 bg-white/70 px-6 py-4 dark:border-plum-500/30 dark:bg-plum-700/40">
+          <p className="text-sm font-bold text-plum-600 dark:text-cream-100">{profile?.name}</p>
           <LogoutButton className="btn-outline text-xs px-3 py-1.5" />
         </header>
-        <main className="p-6 max-w-5xl mx-auto">{children}</main>
+        <main className="mx-auto max-w-5xl p-4 sm:p-6 xl:max-w-6xl">{children}</main>
       </div>
     </div>
   );

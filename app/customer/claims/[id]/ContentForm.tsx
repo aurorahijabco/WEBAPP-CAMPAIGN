@@ -10,7 +10,7 @@ export function ContentForm({ claimId, type }: { claimId: string; type: ContentT
   const [state, formAction, pending] = useActionState(submitContent, undefined);
 
   return (
-    <form action={formAction} className="space-y-2 border-t border-cream-200 pt-3 mt-1">
+    <form action={formAction} className="space-y-2 border-t border-cream-200 pt-3 mt-1 dark:border-plum-500/30">
       <input type="hidden" name="claimId" value={claimId} />
       <input type="hidden" name="type" value={type} />
 
@@ -30,7 +30,7 @@ export function ContentForm({ claimId, type }: { claimId: string; type: ContentT
       </div>
 
       <FieldError message={state?.error} />
-      {state?.success && <p className="text-xs text-green-600 font-medium">{state.success}</p>}
+      {state?.success && <p className="text-xs font-semibold text-success">{state.success}</p>}
 
       <Button type="submit" variant="outline" disabled={pending} className="w-full text-xs py-2">
         {pending ? "Mengirim..." : "Submit Konten"}
