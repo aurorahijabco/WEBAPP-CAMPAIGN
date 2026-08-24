@@ -15,23 +15,19 @@ export async function updateSession(request: NextRequest) {
       cookies: {
         getAll() {
           return request.cookies.getAll();
-        },setAll(
-  cookiesToSet: {
-    name: string;
-    value: string;
-    options?: Record<string, unknown>;
-  }[]
-) {
-  cookiesToSet.forEach(({ name, value }) =>
-    request.cookies.set(name, value)
-  );
+        },
 
-  supabaseResponse = NextResponse.next({ request });
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value);
+          });
 
-  cookiesToSet.forEach(({ name, value, options }) =>
-    supabaseResponse.cookies.set(name, value, options)
-  );
-}
+          supabaseResponse = NextResponse.next({ request });
+
+          cookiesToSet.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, options);
+          });
+        },
       },
     }
   );
@@ -41,8 +37,11 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+
   const isProtected =
-    path.startsWith("/customer") || path.startsWith("/agent") || path.startsWith("/admin");
+    path.startsWith("/customer") ||
+    path.startsWith("/agent") ||
+    path.startsWith("/admin");
 
   if (isProtected && !user) {
     const redirectTo = path.startsWith("/agent")
@@ -50,9 +49,11 @@ export async function updateSession(request: NextRequest) {
       : path.startsWith("/admin")
         ? "/admin-login"
         : "/login";
+
     const url = request.nextUrl.clone();
     url.pathname = redirectTo;
     url.searchParams.set("next", path);
+
     return NextResponse.redirect(url);
   }
 
@@ -64,6 +65,7 @@ export async function updateSession(request: NextRequest) {
       .single();
 
     const role = profile?.role;
+
     const roleForPath = path.startsWith("/customer")
       ? "customer"
       : path.startsWith("/agent")
@@ -72,8 +74,14 @@ export async function updateSession(request: NextRequest) {
 
     if (role !== roleForPath) {
       const url = request.nextUrl.clone();
+
       url.pathname =
-        role === "admin" ? "/admin" : role === "agent" ? "/agent/dashboard" : "/customer/dashboard";
+        role === "admin"
+          ? "/admin"
+          : role === "agent"
+            ? "/agent/dashboard"
+            : "/customer/dashboard";
+
       return NextResponse.redirect(url);
     }
   }
