@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Playfair Display", ui-serif, Georgia, serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-cream-50 text-plum-700 font-body antialiased;
+}
+
+.dark body {
+  @apply bg-plum-900 text-cream-100;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold
+           transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400;
+  }
+  .btn-primary {
+    @apply btn bg-plum-600 text-cream-50 hover:bg-plum-500;
+  }
+  .btn-secondary {
+    @apply btn bg-cream-100 text-plum-600 hover:bg-cream-200;
+  }
+  .btn-outline {
+    @apply btn border border-plum-600 text-plum-600 hover:bg-plum-50;
+  }
+  .btn-gold {
+    @apply btn bg-gold-400 text-plum-700 hover:brightness-95;
+  }
+  .card {
+    @apply rounded-3xl bg-white/90 shadow-sm border border-cream-200 p-5;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold;
+  }
+  .input {
+    @apply w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm
+           focus:border-plum-500 focus:outline-none focus:ring-2 focus:ring-plum-100;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-plum-600;
+  }
+}

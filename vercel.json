@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/sweep-voucher-phase", "schedule": "*/15 * * * *" }
+  ]
+}
