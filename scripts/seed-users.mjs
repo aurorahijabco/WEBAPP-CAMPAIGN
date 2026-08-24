@@ -1,7 +1,8 @@
 /**
- * Seed demo accounts (1 admin, 1 agent per branch, 1 customer) using the
- * Supabase Admin API — auth.users cannot be created safely via plain SQL
- * because passwords must go through GoTrue's hashing.
+ * Seed demo accounts (1 admin, 1 agent per branch, 1 customer) directly into
+ * public.profiles using this project's custom username+password+session auth
+ * (no Supabase Auth involved — passwords are hashed with bcryptjs, same as
+ * lib/auth/password.ts).
  *
  * Usage:
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/seed-users.mjs
@@ -12,6 +13,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { writeFileSync } from "node:fs";
+import bcrypt from "bcryptjs";
 
 const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -29,13 +31,8 @@ function randomPassword() {
   return "Aur0ra!" + Math.random().toString(36).slice(-8);
 }
 
-async function createUser({ email, password, name, username, whatsapp, role, branchCode }) {
-  const { data: userRes, error: userErr } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-  if (userErr) throw userErr;
+async function createUser({ username, password, name, whatsapp, role, branchCode }) {
+  const password_hash = await bcrypt.hash(password, 12);
 
   let branch_id = null;
   if (branchCode) {
@@ -48,23 +45,18 @@ async function createUser({ email, password, name, username, whatsapp, role, bra
     branch_id = branch.id;
   }
 
-  // createUser() above fires the public.handle_new_user() DB trigger, which
-  // already inserts a minimal profiles row (name/username derived from
-  // email since no raw_user_meta_data is passed here). Upsert instead of
-  // insert so this fills in the real role-specific fields instead of
-  // colliding with that row on the id primary key.
-  const { error: profileErr } = await admin.from("profiles").upsert({
-    id: userRes.user.id,
+  const { error: profileErr } = await admin.from("profiles").insert({
     role,
     name,
     username,
     whatsapp,
     branch_id,
+    password_hash,
     agreed_sk_at: new Date().toISOString(),
   });
   if (profileErr) throw profileErr;
 
-  return { email, password, role, username };
+  return { username, password, role };
 }
 
 async function main() {
@@ -72,10 +64,9 @@ async function main() {
 
   results.push(
     await createUser({
-      email: "admin@aurorahijab.demo",
+      username: "aurora_admin",
       password: randomPassword(),
       name: "Aurora Admin",
-      username: "aurora_admin",
       whatsapp: "+6281100000001",
       role: "admin",
     })
@@ -91,10 +82,9 @@ async function main() {
   for (const b of branches) {
     results.push(
       await createUser({
-        email: `agent.${b.code.toLowerCase()}@aurorahijab.demo`,
+        username: `agent_${b.code.toLowerCase()}`,
         password: randomPassword(),
         name: `Agent ${b.name}`,
-        username: `agent_${b.code.toLowerCase()}`,
         whatsapp: `+62811000000${String(i).padStart(2, "0")}`,
         role: "agent",
         branchCode: b.code,
@@ -105,10 +95,9 @@ async function main() {
 
   results.push(
     await createUser({
-      email: "customer@aurorahijab.demo",
+      username: "aurora_customer",
       password: randomPassword(),
       name: "Aurora Customer Demo",
-      username: "aurora_customer",
       whatsapp: "+6281199999999",
       role: "customer",
     })
@@ -119,7 +108,7 @@ async function main() {
     JSON.stringify(results, null, 2)
   );
 
-  console.table(results.map(({ email, password, role }) => ({ email, password, role })));
+  console.table(results.map(({ username, password, role }) => ({ username, password, role })));
   console.log("\nSaved to scripts/.seed-credentials.json (gitignored). Rotate before production traffic.");
 }
 

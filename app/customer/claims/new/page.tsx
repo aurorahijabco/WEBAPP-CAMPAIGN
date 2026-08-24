@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NewClaimForm } from "./NewClaimForm";
 
 export default async function NewClaimPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: branches } = await supabase
     .from("branches")
     .select("id, name")

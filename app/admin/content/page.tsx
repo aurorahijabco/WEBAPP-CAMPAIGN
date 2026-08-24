@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDate } from "@/lib/utils";
 import { REWARD_TIER_LABELS } from "@/types/domain";
 import { ReviewContentForm } from "./ReviewContentForm";
 
 export default async function AdminContentPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: submissions } = await supabase
     .from("content_submissions")
     .select("*, claims(customer_id, branch_id, profiles!claims_customer_id_fkey(name), branches(name))")

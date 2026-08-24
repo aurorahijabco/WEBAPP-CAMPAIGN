@@ -17,8 +17,8 @@ export default function AdminLoginPage() {
     >
       <form action={formAction} className="space-y-4">
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" required />
+          <Label htmlFor="username">Username</Label>
+          <Input id="username" name="username" required autoComplete="username" />
         </div>
         <div>
           <Label htmlFor="password">Password</Label>

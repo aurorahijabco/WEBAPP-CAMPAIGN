@@ -1,6 +1,6 @@
 # Aurora Hijab — Voucher Reward Campaign (Production)
 
-Next.js 15 (App Router) + Supabase (Postgres, Auth, Storage) + Vercel.
+Next.js 15 (App Router) + Supabase (Postgres, Storage — not Auth) + Vercel.
 
 Converts the original single-file HTML/localStorage prototype into a real,
 multi-role, database-backed application: **Customer**, **Agent (per branch)**,
@@ -13,12 +13,18 @@ and **Super Admin**.
 | Layer      | Tech                                              |
 |------------|----------------------------------------------------|
 | Frontend   | Next.js 15 App Router, TypeScript, Tailwind CSS    |
-| Backend    | Supabase Postgres, Auth, Storage, RLS, SQL functions/triggers |
+| Backend    | Supabase Postgres, Storage, SQL functions/triggers (RLS enabled, deny-by-default) |
+| Auth       | Custom username + bcrypt password + HttpOnly session cookie (no Supabase Auth) |
 | Hosting    | Vercel (frontend) + Supabase Cloud (backend)       |
 | Repo       | GitHub → Vercel auto-deploy on push to `main`      |
 
-No business data is stored in `localStorage`. All state lives in Postgres and
-is protected by Row Level Security (RLS).
+No business data is stored in `localStorage`. All state lives in Postgres.
+Authentication is entirely custom (see §6): Supabase Auth is not used at
+all. RLS stays enabled on every table as defense-in-depth, but since there
+is no Supabase-issued JWT to populate `auth.uid()`, authorization is
+enforced in application code — every authenticated read/write goes through
+the service-role client (`lib/supabase/admin.ts`) from server-only code that
+has already validated the caller's session (`lib/auth/session.ts`).
 
 ---
 
@@ -36,17 +42,23 @@ components/
   ui/               # Button, Card, Badge, Field (Input/Select/Textarea)
   nav/              # BottomNav (customer), SidebarNav (agent/admin), LogoutButton
 lib/
-  supabase/         # client.ts (browser), server.ts (RSC/actions), admin.ts (service role),
-                     # middleware.ts (session refresh + route guard)
+  auth/             # crypto.ts (edge-safe token gen/hash), password.ts (bcrypt),
+                     # session.ts (createSession/getCurrentUser/destroySession),
+                     # middleware.ts (custom session validation + route guard)
+  supabase/         # server.ts (public anon-key client, landing page only),
+                     # admin.ts (service-role client — all authenticated access)
   business/         # validation.ts (zod schemas mirroring business rules)
   constants.ts, utils.ts
 types/
   domain.ts         # hand-written types mirroring the DB schema
 supabase/
-  migrations/0001_init.sql   # full schema + RLS + functions/triggers + seed
-  migrations/0002_storage.sql # private `receipts` bucket + storage policies
+  migrations/0001_init.sql          # full schema + functions/triggers + seed
+  migrations/0002_storage.sql       # private `receipts` bucket + storage policies
+  migrations/0003_custom_auth.sql   # drops Supabase Auth dependency, adds
+                                     # profiles.password_hash + sessions table
+  migrations/0004_storage_custom_auth.sql # tightens receipts bucket policies to match
 scripts/
-  seed-users.mjs    # creates demo auth users (admin/agents/customer) via Admin API
+  seed-users.mjs    # creates demo accounts (admin/agents/customer) with hashed passwords
 middleware.ts       # route protection for /customer, /agent, /admin
 ```
 
@@ -175,9 +187,23 @@ Open http://localhost:3000
 | Agent    | `/agent-login`     | `/agent/dashboard`        |
 | Admin    | `/admin-login`     | `/admin`                  |
 
-`middleware.ts` protects `/customer/*`, `/agent/*`, `/admin/*` and redirects
-based on the signed-in user's `profiles.role` (fetched server-side; never
-trusted from the client).
+Login/register are **username + password**, not email. There is no email,
+email verification, OTP, or magic link anywhere in this app.
+
+- Passwords are hashed with bcrypt (`lib/auth/password.ts`, cost 12) before
+  ever touching the database.
+- On successful register/login, `lib/auth/session.ts` generates a random
+  256-bit token, stores only its SHA-256 hash in `public.sessions`, and sets
+  the raw token as an `HttpOnly`, `SameSite=Lax` cookie (`Secure` in
+  production). Sessions expire after 30 days.
+- Logout (`components/nav/LogoutButton.tsx`) deletes the session row
+  server-side (not just the cookie), so a leaked/old token can't be reused.
+- `middleware.ts` → `lib/auth/middleware.ts` protects `/customer/*`,
+  `/agent/*`, `/admin/*`: it validates the session cookie against
+  `public.sessions` (via the service-role client, Edge-compatible) and
+  redirects based on `profiles.role` — never trusted from the client. Each
+  protected layout (`app/customer/layout.tsx` etc.) re-validates via
+  `getCurrentUser()` as defense-in-depth.
 
 Agents must have `profiles.branch_id` set (done by `scripts/seed-users.mjs`
 for demo agents, or manually by an admin for real agents — there is
@@ -221,19 +247,31 @@ To add it later:
 
 ## 9. Security checklist
 
-- RLS enabled on every table; verified per-role policies (see §5 of
-  `0001_init.sql`).
+- RLS enabled on every table (never disabled) — after the custom-auth
+  migration (`0003_custom_auth.sql`), authenticated-data tables have **no**
+  permissive policy left (default-deny for `anon`/`authenticated`), because
+  there is no Supabase-issued JWT to populate `auth.uid()` anymore. Every
+  real read/write goes through the service-role client, authorized in
+  application code by `getCurrentUser()`.
 - `SUPABASE_SERVICE_ROLE_KEY` is only imported in `lib/supabase/admin.ts`,
   which uses `import "server-only"` to fail the build if ever imported from
-  client code. It's used in exactly one place: the cron sweep route.
+  client code. It is now used broadly (all authenticated Server
+  Actions/Components) since it's the only client that can read/write
+  post-migration — never exposed to the browser.
+- Passwords are hashed with bcrypt (cost 12); session tokens are random
+  256-bit values whose SHA-256 hash (not the raw token) is stored in
+  `public.sessions`; the raw token lives only in an `HttpOnly` cookie
+  (`lib/auth/session.ts`) — never in `localStorage` or client JS.
 - All mutations run through Server Actions or Route Handlers — no direct
   client-side writes to sensitive tables (vouchers/notifications are only
   ever written by SECURITY DEFINER SQL functions/triggers, not by direct
   client INSERT).
 - All form inputs are validated server-side with `zod` (`lib/business/validation.ts`)
   in addition to HTML5 `required`/`type` attributes.
-- Storage bucket `receipts` is private; access is owner-only for customers,
-  branch-scoped for agents, full for admins (see `0002_storage.sql`).
+- Storage bucket `receipts` is private; storage.objects RLS has no
+  permissive policy either post-migration (see `0004_storage_custom_auth.sql`)
+  — upload and signed-URL generation both happen server-side via the
+  service-role client after a session check.
 - No secrets committed — `.env*`, `scripts/.seed-credentials.json` are
   gitignored. `.env.example` documents required vars without values.
 
@@ -247,8 +285,8 @@ in the Server Actions for `createClaim`, `submitContent`, and
 
 ## 10. Known v1 limitations / assumptions (documented, not silently changed)
 
-- Phone/OTP auth is not implemented; email + password only (per prompt's
-  "opsional phone nanti").
+- Phone/OTP/email auth is not implemented; username + password only, via a
+  custom session (see §6) — Supabase Auth is not used.
 - Agent accounts are provisioned by admin/seed script, not self-registered.
 - OCR defaults to manual admin review (see §7).
 - WhatsApp push is a documented integration point, not implemented (see §8).

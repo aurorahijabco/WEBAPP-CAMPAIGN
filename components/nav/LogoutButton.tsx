@@ -1,7 +1,11 @@
-"use client";
+import { destroySession } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+async function logoutAction() {
+  "use server";
+  await destroySession();
+  redirect("/");
+}
 
 export function LogoutButton({
   className,
@@ -12,18 +16,11 @@ export function LogoutButton({
   children?: React.ReactNode;
   "aria-label"?: string;
 }) {
-  const router = useRouter();
-  const supabase = createClient();
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-  }
-
   return (
-    <button onClick={handleLogout} className={className ?? "btn-outline"} aria-label={ariaLabel}>
-      {children ?? "Keluar"}
-    </button>
+    <form action={logoutAction}>
+      <button type="submit" className={className ?? "btn-outline"} aria-label={ariaLabel}>
+        {children ?? "Keluar"}
+      </button>
+    </form>
   );
 }

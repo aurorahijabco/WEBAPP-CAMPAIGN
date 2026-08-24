@@ -1,5 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
-import { notFound } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
+import { redirect, notFound } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { formatIDR, formatDate } from "@/lib/utils";
 import { REWARD_TIER_LABELS, ContentType } from "@/types/domain";
@@ -9,16 +10,15 @@ const TIERS: ContentType[] = ["story", "feed_photo", "feed_reels"];
 
 export default async function ClaimDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const supabase = createAdminClient();
 
   const { data: claim } = await supabase
     .from("claims")
     .select("*, branches(name), bills(*)")
     .eq("id", id)
-    .eq("customer_id", user!.id)
+    .eq("customer_id", user.id)
     .single();
 
   if (!claim) notFound();

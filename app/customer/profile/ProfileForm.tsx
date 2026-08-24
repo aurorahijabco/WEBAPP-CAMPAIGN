@@ -6,16 +6,12 @@ import { Input, Label, FieldError } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { Profile } from "@/types/domain";
 
-export function ProfileForm({ profile, email }: { profile: Profile; email: string }) {
+export function ProfileForm({ profile }: { profile: Profile }) {
   const [state, formAction, pending] = useActionState(updateProfile, undefined);
 
   return (
     <div className="card sm:p-7">
       <form action={formAction} className="space-y-4">
-        <div>
-          <Label>Email</Label>
-          <Input value={email} disabled className="opacity-60" />
-        </div>
         <div>
           <Label>Username</Label>
           <Input value={profile.username} disabled className="opacity-60" />

@@ -1,16 +1,15 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
 export async function updateProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Sesi berakhir" };
+  const supabase = createAdminClient();
 
   const name = String(formData.get("name") ?? "").trim();
   const whatsapp = String(formData.get("whatsapp") ?? "").trim();
