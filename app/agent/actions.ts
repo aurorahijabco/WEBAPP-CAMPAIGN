@@ -1,6 +1,7 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
 import { redeemSchema } from "@/lib/business/validation";
 import { revalidatePath } from "next/cache";
 
@@ -13,7 +14,7 @@ export type ActionState =
  * "review before confirm" step in the redeem UI. Read-only.
  */
 export async function lookupVoucher(code: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("vouchers")
     .select("*, profiles!vouchers_customer_id_fkey(name, whatsapp)")
@@ -27,9 +28,14 @@ export async function lookupVoucher(code: string) {
 /**
  * All actual authorization (branch match, ACTIVE status, redemption period)
  * is enforced server-side inside the `redeem_voucher` Postgres function —
- * this action is a thin, validated wrapper around that RPC call.
+ * this action is a thin, validated wrapper around that RPC call. The
+ * calling agent's id comes from our own validated session (there is no
+ * `auth.uid()` anymore), passed explicitly to the RPC.
  */
 export async function redeemVoucher(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "agent") return { error: "Sesi berakhir, silakan login ulang." };
+
   const parsed = redeemSchema.safeParse({
     code: formData.get("code"),
     productName: formData.get("productName"),
@@ -39,8 +45,9 @@ export async function redeemVoucher(_prev: ActionState, formData: FormData): Pro
     return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("redeem_voucher", {
+    p_agent_id: user.id,
     p_code: parsed.data.code,
     p_product_name: parsed.data.productName,
     p_amount: parsed.data.amount,

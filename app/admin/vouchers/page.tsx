@@ -1,9 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/Badge";
 import { formatIDR, formatDate } from "@/lib/utils";
 
 export default async function AdminVouchersPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: vouchers } = await supabase
     .from("vouchers")
     .select("*, profiles!vouchers_customer_id_fkey(name), branches(name)")

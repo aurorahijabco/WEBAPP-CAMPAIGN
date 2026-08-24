@@ -1,18 +1,19 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 import { formatIDR, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { CopyCodeButton } from "./CopyCodeButton";
 
 export default async function VouchersPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const supabase = createAdminClient();
 
   const { data: vouchers } = await supabase
     .from("vouchers")
     .select("*, branches(name)")
-    .eq("customer_id", user!.id)
+    .eq("customer_id", user.id)
     .order("created_at", { ascending: false });
 
   return (

@@ -1,18 +1,19 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { markNotificationsRead } from "@/app/customer/actions";
 import { cn } from "@/lib/utils";
 
 export default async function NotificationsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const supabase = createAdminClient();
 
   const { data: notifications } = await supabase
     .from("notifications")
     .select("*")
-    .eq("user_id", user!.id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   return (

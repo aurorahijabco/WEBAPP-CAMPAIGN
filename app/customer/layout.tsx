@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { LogoutButton } from "@/components/nav/LogoutButton";
 import Link from "next/link";
@@ -35,7 +37,7 @@ async function getPhaseBanner() {
 }
 
 async function getUnreadCount(userId: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { count } = await supabase
     .from("notifications")
     .select("*", { count: "exact", head: true })
@@ -45,11 +47,8 @@ async function getUnreadCount(userId: string) {
 }
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const user = await getCurrentUser();
+  if (!user || user.role !== "customer") redirect("/login");
 
   const [banner, unread] = await Promise.all([getPhaseBanner(), getUnreadCount(user.id)]);
 

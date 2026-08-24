@@ -37,10 +37,6 @@ export default function RegisterPage() {
           <Input id="whatsapp" name="whatsapp" required placeholder="+62812xxxxxxx" />
         </div>
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" required />
-        </div>
-        <div>
           <Label htmlFor="password">Password</Label>
           <Input id="password" name="password" type="password" required minLength={8} />
         </div>
@@ -67,14 +63,6 @@ export default function RegisterPage() {
             className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-danger/40 dark:bg-danger-bg/20 dark:text-danger"
           >
             {state.error}
-          </div>
-        )}
-        {state?.notice && (
-          <div
-            role="status"
-            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 dark:border-success/40 dark:bg-success-bg/20 dark:text-success"
-          >
-            {state.notice}
           </div>
         )}
         <Button type="submit" disabled={pending} className="w-full">

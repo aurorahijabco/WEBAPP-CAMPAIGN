@@ -4,6 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { cn, formatDate } from "@/lib/utils";
 import { IconChevronDown, IconGift, IconShield, IconSparkles, IconStore } from "@/components/icons";
 
+// The public anon-key client no longer touches next/headers cookies() (it
+// never did anything auth-related), so Next.js would otherwise statically
+// optimize this page at build time and bake in a stale redemption period.
+export const dynamic = "force-dynamic";
+
 async function getRedemptionPeriod() {
   const supabase = await createClient();
   const { data } = await supabase

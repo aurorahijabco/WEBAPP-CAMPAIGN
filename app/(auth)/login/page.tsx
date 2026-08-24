@@ -13,7 +13,7 @@ export default function LoginPage() {
   return (
     <AuthShell
       title="Selamat Datang"
-      subtitle="Masuk dengan email & password akunmu."
+      subtitle="Masuk dengan username & password akunmu."
       footer={
         <>
           Belum punya akun?{" "}
@@ -25,8 +25,8 @@ export default function LoginPage() {
     >
       <form action={formAction} className="space-y-4">
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" required />
+          <Label htmlFor="username">Username</Label>
+          <Input id="username" name="username" required autoComplete="username" />
         </div>
         <div>
           <Label htmlFor="password">Password</Label>

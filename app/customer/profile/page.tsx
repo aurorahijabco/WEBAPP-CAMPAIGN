@@ -1,14 +1,22 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 import { ProfileForm } from "./ProfileForm";
 import { LogoutButton } from "@/components/nav/LogoutButton";
 
 export default async function ProfilePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user!.id).single();
+  const supabase = createAdminClient();
+  // Never select password_hash here — this row is passed as a prop straight
+  // into a client component (ProfileForm), so anything selected is
+  // serialized to the browser.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, role, name, username, whatsapp, branch_id, agreed_sk_at, created_at")
+    .eq("id", user.id)
+    .single();
 
   return (
     <div className="space-y-6 pb-4">
@@ -22,7 +30,7 @@ export default async function ProfilePage() {
         </div>
       </div>
 
-      <ProfileForm profile={profile!} email={user!.email ?? ""} />
+      <ProfileForm profile={profile!} />
       <LogoutButton className="btn-outline w-full" />
     </div>
   );

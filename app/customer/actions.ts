@@ -1,6 +1,7 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
 import { newClaimSchema, contentSubmissionSchema } from "@/lib/business/validation";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -8,16 +9,16 @@ import { revalidatePath } from "next/cache";
 export type ActionState = { error?: string; success?: string } | undefined;
 
 /**
- * Creates a bill (receipt) + claim in one flow. The receipt photo is uploaded
- * to the private `receipts` bucket under `{user_id}/{random}.{ext}` so that
- * storage RLS (owner-only) applies automatically.
+ * Creates a bill (receipt) + claim in one flow. The receipt photo is
+ * uploaded to the private `receipts` bucket under `{user_id}/{random}.{ext}`
+ * via the service-role client — storage RLS no longer applies (there is no
+ * Supabase-issued session to authenticate as the owner), so ownership is
+ * enforced here by the `user.id` we just validated via our own session.
  */
 export async function createClaim(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Sesi berakhir, silakan login ulang." };
+  const supabase = createAdminClient();
 
   const itemNames = formData.getAll("itemName");
   const itemQtys = formData.getAll("itemQty");
@@ -81,11 +82,9 @@ export async function createClaim(_prev: ActionState, formData: FormData): Promi
 }
 
 export async function submitContent(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { error: "Sesi berakhir, silakan login ulang." };
+  const supabase = createAdminClient();
 
   const parsed = contentSubmissionSchema.safeParse({
     claimId: formData.get("claimId"),
@@ -97,7 +96,8 @@ export async function submitContent(_prev: ActionState, formData: FormData): Pro
     return { error: parsed.error.issues[0]?.message ?? "Data konten tidak valid" };
   }
 
-  // Ownership check (defense in depth, RLS also enforces this)
+  // Ownership check — the service-role client bypasses RLS, so this
+  // application-level check is now the only thing enforcing it.
   const { data: claim } = await supabase
     .from("claims")
     .select("id, customer_id")
@@ -121,11 +121,9 @@ export async function submitContent(_prev: ActionState, formData: FormData): Pro
 }
 
 export async function markNotificationsRead(): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return;
+  const supabase = createAdminClient();
 
   await supabase
     .from("notifications")

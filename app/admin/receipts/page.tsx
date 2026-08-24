@@ -1,9 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatIDR, formatDate } from "@/lib/utils";
 import { ReviewBillForm } from "./ReviewBillForm";
 
 export default async function AdminReceiptsPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: bills } = await supabase
     .from("bills")
     .select("*, profiles!bills_customer_id_fkey(name, whatsapp), branches(name)")

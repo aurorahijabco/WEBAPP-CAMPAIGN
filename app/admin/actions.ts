@@ -1,20 +1,16 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
 import { billReviewSchema, contentReviewSchema } from "@/lib/business/validation";
 import { revalidatePath } from "next/cache";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
 async function assertAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { supabase, ok: false as const };
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  return { supabase, ok: profile?.role === "admin" };
+  const user = await getCurrentUser();
+  const supabase = createAdminClient();
+  return { supabase, user, ok: user?.role === "admin" };
 }
 
 export async function reviewBill(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -45,8 +41,8 @@ export async function reviewBill(_prev: ActionState, formData: FormData): Promis
 }
 
 export async function reviewContent(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { supabase, ok } = await assertAdmin();
-  if (!ok) return { error: "Tidak diizinkan" };
+  const { supabase, user, ok } = await assertAdmin();
+  if (!ok || !user) return { error: "Tidak diizinkan" };
 
   const parsed = contentReviewSchema.safeParse({
     submissionId: formData.get("submissionId"),
@@ -59,17 +55,13 @@ export async function reviewContent(_prev: ActionState, formData: FormData): Pro
     return { error: "Alasan wajib diisi untuk status REJECTED / HOLD" };
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const { error } = await supabase
     .from("content_submissions")
     .update({
       status: parsed.data.status,
       reason: parsed.data.reason ?? null,
       reviewed_at: new Date().toISOString(),
-      reviewed_by: user!.id,
+      reviewed_by: user.id,
     })
     .eq("id", parsed.data.submissionId);
 

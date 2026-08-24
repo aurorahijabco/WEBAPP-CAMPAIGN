@@ -4,22 +4,28 @@ import { z } from "zod";
 // rules here (single source of truth on the app layer, mirrored by DB
 // constraints + RLS as defense in depth).
 
+export const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3, "Username minimal 3 karakter")
+  .max(30)
+  .regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf kecil, angka, underscore");
+
 export const registerSchema = z.object({
   name: z.string().trim().min(3, "Nama minimal 3 karakter").max(100),
-  username: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .min(3, "Username minimal 3 karakter")
-    .max(30)
-    .regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf kecil, angka, underscore"),
+  username: usernameSchema,
   whatsapp: z
     .string()
     .trim()
     .regex(/^\+?[0-9]{9,15}$/, "Nomor WhatsApp tidak valid"),
-  email: z.string().trim().email("Email tidak valid"),
   password: z.string().min(8, "Password minimal 8 karakter"),
   agreedSk: z.literal(true, { errorMap: () => ({ message: "Wajib menyetujui Syarat & Ketentuan" }) }),
+});
+
+export const loginSchema = z.object({
+  username: z.string().trim().toLowerCase().min(1, "Username wajib diisi"),
+  password: z.string().min(1, "Password wajib diisi"),
 });
 
 export const newClaimSchema = z.object({

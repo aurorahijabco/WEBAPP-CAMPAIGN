@@ -1,17 +1,19 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import { registerSchema } from "@/lib/business/validation";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { registerSchema, loginSchema } from "@/lib/business/validation";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { createSession } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
+import type { AppRole } from "@/types/domain";
 
-export type ActionState = { error?: string; notice?: string } | undefined;
+export type ActionState = { error?: string } | undefined;
 
 export async function registerCustomer(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const raw = {
     name: formData.get("name"),
     username: formData.get("username"),
     whatsapp: formData.get("whatsapp"),
-    email: formData.get("email"),
     password: formData.get("password"),
     agreedSk: formData.get("agreedSk") === "on",
   };
@@ -20,11 +22,10 @@ export async function registerCustomer(_prev: ActionState, formData: FormData): 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
   }
-  const { name, username, whatsapp, email, password } = parsed.data;
+  const { name, username, whatsapp, password } = parsed.data;
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
-  // Uniqueness pre-check (also enforced by DB unique constraints as source of truth)
   const { data: existingUsername } = await supabase
     .from("profiles")
     .select("id")
@@ -39,77 +40,58 @@ export async function registerCustomer(_prev: ActionState, formData: FormData): 
     .maybeSingle();
   if (existingWhatsapp) return { error: "Nomor WhatsApp sudah terdaftar" };
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://webapp-campaign.vercel.app";
+  const passwordHash = await hashPassword(password);
 
-  // options.data becomes auth.users.raw_user_meta_data, which the
-  // public.handle_new_user() trigger (supabase/migrations/0001_init.sql)
-  // reads to create the matching public.profiles row. Keys must match what
-  // that trigger looks for.
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: name,
-        phone_number: whatsapp,
-        username,
-        role: "customer",
-      },
-      emailRedirectTo: `${siteUrl}/auth/callback`,
-    },
-  });
-
-  if (signUpError) {
-    return { error: signUpError.message || "Gagal membuat akun, silakan coba lagi" };
-  }
-  if (!signUpData.user) {
-    return { error: "Gagal membuat akun, silakan coba lagi" };
-  }
-
-  // Email confirmation required: no session yet, nothing to redirect into.
-  if (!signUpData.session) {
-    return {
-      notice: "Akun berhasil dibuat. Silakan cek email kamu untuk konfirmasi sebelum login.",
-    };
-  }
-
-  // Record terms acceptance now that we have an authenticated session; the
-  // profile row itself was already created by the on_auth_user_created
-  // trigger, so this is a best-effort update, not a signup blocker.
-  await supabase
+  const { data: profile, error: insertError } = await supabase
     .from("profiles")
-    .update({ agreed_sk_at: new Date().toISOString() })
-    .eq("id", signUpData.user.id);
+    .insert({
+      role: "customer",
+      name,
+      username,
+      whatsapp,
+      password_hash: passwordHash,
+      agreed_sk_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
 
+  if (insertError || !profile) {
+    return { error: "Gagal membuat akun: " + (insertError?.message ?? "unknown error") };
+  }
+
+  await createSession(profile.id);
   redirect("/customer/dashboard");
 }
 
 async function loginAs(
   formData: FormData,
-  expectedRole: "customer" | "agent" | "admin",
+  expectedRole: AppRole,
   fallbackHome: string
 ): Promise<ActionState> {
-  const email = String(formData.get("email") ?? "");
-  const password = String(formData.get("password") ?? "");
+  const parsed = loginSchema.safeParse({
+    username: formData.get("username"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) return { error: "Username dan password wajib diisi" };
+  const { username, password } = parsed.data;
 
-  if (!email || !password) return { error: "Email dan password wajib diisi" };
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: "Email atau password salah" };
-  if (!data.user) return { error: "Login gagal" };
-
+  const supabase = createAdminClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
-    .eq("id", data.user.id)
-    .single();
+    .select("id, role, password_hash")
+    .eq("username", username)
+    .maybeSingle();
 
-  if (!profile || profile.role !== expectedRole) {
-    await supabase.auth.signOut();
+  if (!profile) return { error: "Username atau password salah" };
+
+  const valid = await verifyPassword(password, profile.password_hash);
+  if (!valid) return { error: "Username atau password salah" };
+
+  if (profile.role !== expectedRole) {
     return { error: `Akun ini bukan akun ${expectedRole}. Gunakan halaman login yang sesuai.` };
   }
 
+  await createSession(profile.id);
   redirect(fallbackHome);
 }
 

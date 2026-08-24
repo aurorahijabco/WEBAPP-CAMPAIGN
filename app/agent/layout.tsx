@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { SidebarNav } from "@/components/nav/SidebarNav";
 import { LogoutButton } from "@/components/nav/LogoutButton";
@@ -9,12 +10,10 @@ const NAV = [
 ];
 
 export default async function AgentLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/agent-login");
+  const user = await getCurrentUser();
+  if (!user || user.role !== "agent") redirect("/agent-login");
 
+  const supabase = createAdminClient();
   const { data: profile } = await supabase
     .from("profiles")
     .select("name, branch_id, branches(name)")

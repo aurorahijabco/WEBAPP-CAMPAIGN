@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatIDR } from "@/lib/utils";
 
 export default async function AdminOverview() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const [{ count: claimCount }, { count: holdBills }, { count: pendingContent }, { data: vouchers }] =
     await Promise.all([

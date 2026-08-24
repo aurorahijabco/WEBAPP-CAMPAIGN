@@ -1,30 +1,29 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { formatDate, formatIDR } from "@/lib/utils";
 
 export default async function CustomerDashboard() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase.from("profiles").select("name").eq("id", user!.id).single();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const supabase = createAdminClient();
 
   const { data: claims } = await supabase
     .from("claims")
     .select("id, purchase_status, flagged, created_at, branches(name)")
-    .eq("customer_id", user!.id)
+    .eq("customer_id", user.id)
     .order("created_at", { ascending: false });
 
   const { data: vouchers } = await supabase
     .from("vouchers")
     .select("id, status, value")
-    .eq("customer_id", user!.id);
+    .eq("customer_id", user.id);
 
   const activeVouchers = vouchers?.filter((v) => v.status === "ACTIVE").length ?? 0;
   const totalValue = vouchers?.reduce((sum, v) => sum + v.value, 0) ?? 0;
-  const name = profile?.name ?? "Customer";
+  const name = user.name;
 
   return (
     <div className="space-y-6 pb-4">

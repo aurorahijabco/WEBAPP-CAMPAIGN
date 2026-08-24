@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { BranchToggle } from "./BranchToggle";
 
 export default async function AdminBranchesPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: branches } = await supabase.from("branches").select("*").order("name");
 
   return (
