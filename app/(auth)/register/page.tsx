@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { registerCustomer } from "../actions";
-import { Input, Label, FieldError } from "@/components/ui/Field";
+import { Input, Label } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
 export default function RegisterPage() {
@@ -45,8 +45,22 @@ export default function RegisterPage() {
             campaign Aurora Hijab.
           </label>
 
-          <FieldError message={state?.error} />
-
+          {state?.error && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
+            >
+              {state.error}
+            </div>
+          )}
+          {state?.notice && (
+            <div
+              role="status"
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700"
+            >
+              {state.notice}
+            </div>
+          )}
           <Button type="submit" disabled={pending} className="w-full">
             {pending ? "Memproses..." : "Daftar"}
           </Button>
