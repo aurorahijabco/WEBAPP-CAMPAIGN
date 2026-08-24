@@ -1,21 +1,21 @@
 import { cn } from "@/lib/utils";
 
 const STYLES: Record<string, string> = {
-  VALID: "bg-green-100 text-green-700",
-  APPROVED: "bg-green-100 text-green-700",
-  ACTIVE: "bg-green-100 text-green-700",
-  REDEEMED: "bg-plum-100 text-plum-600",
-  HOLD: "bg-amber-100 text-amber-700",
-  PENDING: "bg-amber-100 text-amber-700",
-  RESERVED: "bg-blue-100 text-blue-700",
-  INVALID: "bg-red-100 text-red-700",
-  REJECTED: "bg-red-100 text-red-700",
-  EXPIRED: "bg-gray-100 text-gray-500",
+  VALID: "badge-valid",
+  APPROVED: "badge-approved",
+  ACTIVE: "badge-active",
+  REDEEMED: "badge-redeemed",
+  HOLD: "badge-hold",
+  PENDING: "badge-pending",
+  RESERVED: "badge-reserved",
+  INVALID: "badge-invalid",
+  REJECTED: "badge-rejected",
+  EXPIRED: "badge-expired",
 };
 
 export function Badge({ status }: { status: string }) {
   return (
-    <span className={cn("badge", STYLES[status] ?? "bg-gray-100 text-gray-600")}>
+    <span className={cn("badge", STYLES[status] ?? "bg-cream-100 text-plum-400")}>
       {status}
     </span>
   );

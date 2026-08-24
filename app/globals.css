@@ -1,10 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --font-display: "Playfair Display", ui-serif, Georgia, serif;
-  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
 }
 
 html {
@@ -26,28 +28,69 @@ body {
            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400;
   }
   .btn-primary {
-    @apply btn bg-plum-600 text-cream-50 hover:bg-plum-500;
+    @apply btn bg-plum-600 text-cream-50 shadow-pop hover:bg-plum-500;
   }
   .btn-secondary {
     @apply btn bg-cream-100 text-plum-600 hover:bg-cream-200;
   }
   .btn-outline {
-    @apply btn border border-plum-600 text-plum-600 hover:bg-plum-50;
+    @apply btn border-[1.5px] border-plum-600/25 text-plum-600 hover:border-gold-400 hover:bg-plum-50;
   }
   .btn-gold {
-    @apply btn bg-gold-400 text-plum-700 hover:brightness-95;
+    @apply btn bg-gradient-to-br from-gold-300 to-gold-500 text-plum-900 shadow-pop hover:brightness-95;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white hover:brightness-95;
+  }
+  .btn-sm {
+    @apply px-3.5 py-2 text-xs rounded-xl w-auto;
   }
   .card {
-    @apply rounded-3xl bg-white/90 shadow-sm border border-cream-200 p-5;
+    @apply rounded-3xl bg-white/90 shadow-card border border-cream-200 p-5;
+  }
+  .card-tappable {
+    @apply card transition hover:border-gold-400 hover:shadow-pop hover:-translate-y-0.5;
   }
   .badge {
-    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold;
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide;
+  }
+  .badge-valid, .badge-approved, .badge-active, .badge-redeemed {
+    @apply bg-success-bg text-success;
+  }
+  .badge-invalid, .badge-rejected, .badge-expired {
+    @apply bg-danger-bg text-danger;
+  }
+  .badge-hold, .badge-pending {
+    @apply bg-hold-bg text-hold;
+  }
+  .badge-reserved {
+    @apply bg-warn-bg text-warn;
   }
   .input {
-    @apply w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm
-           focus:border-plum-500 focus:outline-none focus:ring-2 focus:ring-plum-100;
+    @apply w-full rounded-2xl border-[1.5px] border-cream-200 bg-cream-50/70 px-4 py-3 text-sm
+           focus:border-gold-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gold-400/25;
   }
   .label {
-    @apply mb-1.5 block text-sm font-medium text-plum-600;
+    @apply mb-1.5 block text-sm font-semibold text-plum-400;
+  }
+  .section-title {
+    @apply flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-gold-500;
+  }
+  .stat-box {
+    @apply rounded-2xl border border-cream-200 bg-white p-4;
+  }
+  .notice {
+    @apply flex items-start gap-2.5 rounded-2xl border border-transparent px-3.5 py-3 text-[12.5px] font-medium;
+  }
+  .notice-info { @apply bg-hold-bg text-hold; }
+  .notice-warn { @apply bg-warn-bg text-warn; }
+  .notice-danger { @apply bg-danger-bg text-danger; }
+  .notice-success { @apply bg-success-bg text-success; }
+  .ticket {
+    @apply relative overflow-hidden rounded-[22px] text-white shadow-pop;
+    background: linear-gradient(150deg, #3B1F2B 0%, #54293A 55%, #3B1F2B 100%);
+  }
+  .ticket-perf {
+    @apply relative border-t-2 border-dashed border-white/25;
   }
 }
