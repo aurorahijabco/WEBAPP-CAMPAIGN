@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CONTENT_REQUIREMENTS, REDEEM_PRODUCT_NAME } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 async function getRedemptionPeriod() {
   const supabase = await createClient();
@@ -17,32 +17,77 @@ export default async function LandingPage() {
   const period = await getRedemptionPeriod();
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-plum-600 via-plum-500 to-plum-600 text-cream-50">
+    <main className="min-h-screen bg-cream-50 text-plum-700">
       {/* Hero */}
-      <section className="mx-auto max-w-3xl px-6 pt-16 pb-12 text-center">
-        <p className="text-xs tracking-[0.3em] text-gold-400 uppercase mb-3">Aurora Hijab</p>
-        <h1 className="font-display text-4xl md:text-5xl leading-tight mb-4">
-          Voucher Reward Campaign
-        </h1>
-        <p className="text-cream-100/90 mb-8">
-          Beli Series Agustin, ceritakan pengalamanmu di media sosial, dan dapatkan voucher
-          eksklusif untuk berbelanja {REDEEM_PRODUCT_NAME}.
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <Link href="/register" className="btn-gold">Daftar Sekarang</Link>
-          <Link href="/login" className="btn-outline border-cream-100 text-cream-50 hover:bg-white/10">
-            Masuk
-          </Link>
-        </div>
-        <div className="mt-6 flex justify-center gap-4 text-xs text-cream-100/70">
-          <Link href="/agent-login" className="underline underline-offset-2">Login Agen Cabang</Link>
-          <span>·</span>
-          <Link href="/admin-login" className="underline underline-offset-2">Login Admin</Link>
+      <section
+        className="relative overflow-hidden px-6 pt-16 pb-14 text-white"
+        style={{
+          background:
+            "radial-gradient(circle at 18% -14%, #6B3548, #3B1F2B 52%, #1a0c12 122%)",
+        }}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(201,163,116,0.4), transparent 70%)" }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-20 -left-10 h-52 w-52 rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(201,123,132,0.28), transparent 70%)" }}
+        />
+        <div className="relative mx-auto max-w-3xl text-center">
+          <p className="mb-4 inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.22em] text-rose-200">
+            <span className="inline-block h-px w-4 bg-gold-400" />
+            Aurora Hijab
+          </p>
+          <h1 className="font-display text-4xl leading-tight md:text-5xl mb-4">
+            Voucher <span className="text-gold-400">Reward</span> Campaign
+          </h1>
+          <p className="mx-auto mb-8 max-w-md text-white/80">
+            Beli Series Agustin, ceritakan pengalamanmu di media sosial, dan dapatkan voucher
+            eksklusif untuk berbelanja {REDEEM_PRODUCT_NAME}.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link href="/register" className="btn-gold">Daftar Sekarang</Link>
+            <Link href="/login" className="btn-outline border-white/30 text-white hover:bg-white/10">
+              Masuk
+            </Link>
+          </div>
+          <div className="mt-6 flex justify-center gap-4 text-xs text-white/60">
+            <Link href="/agent-login" className="underline underline-offset-2">Login Agen Cabang</Link>
+            <span>·</span>
+            <Link href="/admin-login" className="underline underline-offset-2">Login Admin</Link>
+          </div>
+
+          <div className="relative z-10 mt-8 grid grid-cols-4 gap-2">
+            {[
+              ["Story", "Rp20rb"],
+              ["Photo", "Rp30rb"],
+              ["Reels", "Rp40rb"],
+              ["Semua", "Rp50rb"],
+            ].map(([label, amt], i) => (
+              <div
+                key={label}
+                className={cn(
+                  "rounded-2xl border p-3 text-center backdrop-blur",
+                  i === 3
+                    ? "border-transparent bg-gradient-to-br from-gold-300 to-gold-500 text-plum-900 shadow-pop"
+                    : "border-white/20 bg-white/10"
+                )}
+              >
+                <p className="font-mono text-[13px] font-bold">{amt}</p>
+                <p className={cn("mt-1 text-[9px] uppercase tracking-wide", i === 3 ? "text-plum-900/80" : "text-white/70")}>
+                  {label}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section className="bg-cream-50 text-plum-700 rounded-t-[2.5rem] px-6 py-12">
+      <section className="relative z-10 -mt-8 rounded-t-[2.5rem] bg-cream-50 px-6 py-12 text-plum-700">
         <div className="mx-auto max-w-3xl">
           <h2 className="font-display text-2xl mb-6 text-center">Cara Kerja</h2>
           <ol className="space-y-4">
