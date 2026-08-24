@@ -788,11 +788,75 @@ $$;
 -- Otherwise, trigger this via a Vercel Cron -> Next.js API route -> Supabase RPC (see README).
 
 -- ---------------------------------------------------------------------------
--- 13. Auto-create profile row on new auth.users signup is handled from the
--- app's server-side registration action (not a DB trigger), because we need
--- role-specific required fields (username/whatsapp) validated at signup time.
--- See app/(auth)/actions.ts -> registerCustomer().
+-- 13. Auto-create profile row on new auth.users signup.
+--
+-- Username/whatsapp are still validated (uniqueness pre-check) client-side in
+-- app/(auth)/actions.ts -> registerCustomer() before calling supabase.auth.signUp(),
+-- but the actual public.profiles row is created here, driven by
+-- raw_user_meta_data (options.data passed to signUp()). Doing it in a
+-- SECURITY DEFINER trigger — rather than a follow-up client insert — means it
+-- runs regardless of whether the session is confirmed yet (RLS-independent),
+-- so "Confirm email" projects don't silently drop the profile row.
+--
+-- COALESCE handles a couple of historically-used metadata key spellings so
+-- older clients / other callers of signUp() keep working.
 -- ---------------------------------------------------------------------------
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_name text;
+  v_username text;
+  v_whatsapp text;
+  v_role app_role;
+begin
+  v_name := coalesce(
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'fullName',
+    new.raw_user_meta_data->>'name',
+    split_part(new.email, '@', 1)
+  );
+
+  v_username := coalesce(
+    new.raw_user_meta_data->>'username',
+    split_part(new.email, '@', 1)
+  );
+
+  v_whatsapp := coalesce(
+    new.raw_user_meta_data->>'phone_number',
+    new.raw_user_meta_data->>'phone',
+    new.raw_user_meta_data->>'whatsapp',
+    new.phone
+  );
+
+  v_role := coalesce(
+    (new.raw_user_meta_data->>'role')::app_role,
+    'customer'
+  );
+
+  insert into public.profiles (id, role, name, username, whatsapp)
+  values (new.id, v_role, v_name, v_username, v_whatsapp)
+  on conflict (id) do nothing;
+
+  return new;
+exception
+  when others then
+    -- Never let a profile-creation problem (bad metadata, unique clash on
+    -- username/whatsapp, etc.) turn into an unhandled 500 on signUp(). The
+    -- auth user is still created; the app can detect a missing profile row
+    -- and prompt the user to complete it.
+    raise warning 'handle_new_user failed for user %: %', new.id, sqlerrm;
+    return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
 -- =============================================================================
 -- SEED DATA

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { registerSchema } from "@/lib/business/validation";
 import { redirect } from "next/navigation";
 
-export type ActionState = { error?: string } | undefined;
+export type ActionState = { error?: string; notice?: string } | undefined;
 
 export async function registerCustomer(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const raw = {
@@ -39,24 +39,47 @@ export async function registerCustomer(_prev: ActionState, formData: FormData): 
     .maybeSingle();
   if (existingWhatsapp) return { error: "Nomor WhatsApp sudah terdaftar" };
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://webapp-campaign.vercel.app";
+
+  // options.data becomes auth.users.raw_user_meta_data, which the
+  // public.handle_new_user() trigger (supabase/migrations/0001_init.sql)
+  // reads to create the matching public.profiles row. Keys must match what
+  // that trigger looks for.
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        full_name: name,
+        phone_number: whatsapp,
+        username,
+        role: "customer",
+      },
+      emailRedirectTo: `${siteUrl}/auth/callback`,
+    },
   });
-  if (signUpError) return { error: signUpError.message };
-  if (!signUpData.user) return { error: "Gagal membuat akun, silakan coba lagi" };
 
-  const { error: profileError } = await supabase.from("profiles").insert({
-    id: signUpData.user.id,
-    role: "customer",
-    name,
-    username,
-    whatsapp,
-    agreed_sk_at: new Date().toISOString(),
-  });
-  if (profileError) {
-    return { error: "Akun dibuat tapi profil gagal disimpan: " + profileError.message };
+  if (signUpError) {
+    return { error: signUpError.message || "Gagal membuat akun, silakan coba lagi" };
   }
+  if (!signUpData.user) {
+    return { error: "Gagal membuat akun, silakan coba lagi" };
+  }
+
+  // Email confirmation required: no session yet, nothing to redirect into.
+  if (!signUpData.session) {
+    return {
+      notice: "Akun berhasil dibuat. Silakan cek email kamu untuk konfirmasi sebelum login.",
+    };
+  }
+
+  // Record terms acceptance now that we have an authenticated session; the
+  // profile row itself was already created by the on_auth_user_created
+  // trigger, so this is a best-effort update, not a signup blocker.
+  await supabase
+    .from("profiles")
+    .update({ agreed_sk_at: new Date().toISOString() })
+    .eq("id", signUpData.user.id);
 
   redirect("/customer/dashboard");
 }
