@@ -1,6 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: {
+    domain?: string;
+    encode?: (value: string) => string;
+    expires?: Date;
+    httpOnly?: boolean;
+    maxAge?: number;
+    path?: string;
+    sameSite?: boolean | "lax" | "strict" | "none";
+    secure?: boolean;
+  };
+};
+
 /**
  * Refreshes the Supabase auth session on every request and applies
  * role-based route protection for /customer, /agent, /admin.
@@ -17,7 +32,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
 
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           });
