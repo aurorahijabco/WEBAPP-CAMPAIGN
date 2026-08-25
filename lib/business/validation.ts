@@ -97,3 +97,30 @@ export const updateAgentSchema = z.object({
 export const deleteAgentSchema = z.object({
   agentId: z.string().uuid(),
 });
+
+const branchCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .min(2, "Kode cabang minimal 2 karakter")
+  .max(30)
+  .regex(/^[A-Z0-9_]+$/, "Kode cabang hanya boleh huruf besar, angka, underscore");
+
+export const createBranchSchema = z.object({
+  name: z.string().trim().min(3, "Nama cabang minimal 3 karakter").max(150),
+  code: branchCodeSchema,
+  qrCode: z.string().trim().min(3, "Kode QR minimal 3 karakter").max(100),
+  address: z.string().trim().max(300).optional().or(z.literal("")),
+});
+
+export const updateBranchSchema = z.object({
+  branchId: z.string().uuid(),
+  name: z.string().trim().min(3, "Nama cabang minimal 3 karakter").max(150),
+  code: branchCodeSchema,
+  qrCode: z.string().trim().min(3, "Kode QR minimal 3 karakter").max(100),
+  address: z.string().trim().max(300).optional().or(z.literal("")),
+});
+
+export const deleteBranchSchema = z.object({
+  branchId: z.string().uuid(),
+});
