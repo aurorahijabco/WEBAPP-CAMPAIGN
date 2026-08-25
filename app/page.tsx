@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { REDEEM_PRODUCT_NAME, REDEEM_PRODUCT_REFERENCE_PRICE } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { cn, formatDate } from "@/lib/utils";
 import { IconChevronDown, IconGift, IconShield, IconSparkles, IconStore } from "@/components/icons";
+import { BranchWelcomeToast } from "@/components/BranchWelcomeToast";
 
 // The public anon-key client no longer touches next/headers cookies() (it
 // never did anything auth-related), so Next.js would otherwise statically
@@ -17,6 +19,27 @@ async function getRedemptionPeriod() {
     .eq("key", "redemption_period")
     .single();
   return data?.value as { start: string; end: string } | undefined;
+}
+
+/**
+ * Resolves the QR-detected branch code against the database for the
+ * welcome toast — same resolution pattern as the register page. The name
+ * shown to the customer always comes from `branches.name`, never the raw
+ * URL value, and the toast is only surfaced for a branch that exists and
+ * is active. The public anon client can't read `branches` (RLS default-
+ * deny), so this uses the service-role client — read-only, and only ever
+ * returns a name string to the page, never anything sensitive.
+ */
+async function getWelcomeBranchName(codeParam: string | undefined): Promise<string | null> {
+  if (!codeParam) return null;
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("branches")
+    .select("name, active")
+    .eq("code", codeParam.trim().toUpperCase())
+    .maybeSingle();
+  if (!data || !data.active) return null;
+  return data.name;
 }
 
 function KV({ k, v }: { k: string; v: React.ReactNode }) {
@@ -46,14 +69,15 @@ export default async function LandingPage({
 }: {
   searchParams: Promise<{ branch?: string }>;
 }) {
-  const period = await getRedemptionPeriod();
   const { branch } = await searchParams;
+  const [period, welcomeBranchName] = await Promise.all([getRedemptionPeriod(), getWelcomeBranchName(branch)]);
   // Carry the QR-detected branch code through to Register — final
   // resolution/validation against the database happens there, never here.
   const registerHref = branch ? `/register?branch=${encodeURIComponent(branch)}` : "/register";
 
   return (
     <main className="min-h-screen bg-cream-50 text-plum-700 dark:bg-plum-900 dark:text-cream-100">
+      <BranchWelcomeToast branchName={welcomeBranchName} />
       {/* Hero */}
       <section
         className="relative overflow-hidden px-6 pt-10 pb-11 text-white sm:px-8 sm:pt-12 lg:pb-20 lg:pt-16"
