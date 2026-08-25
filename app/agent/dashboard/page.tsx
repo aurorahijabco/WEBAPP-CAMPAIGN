@@ -67,6 +67,28 @@ export default async function AgentDashboard() {
           <div className="empty card">Belum ada voucher aktif.</div>
         )}
       </div>
+
+      <div>
+        <p className="section-title mb-3">Riwayat Redeem</p>
+        {redeemed.length ? (
+          <div className="card divide-y divide-cream-200 p-2 dark:divide-plum-500/30">
+            {redeemed.map((v: any) => (
+              <div key={v.id} className="flex items-center justify-between gap-3 px-2.5 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-plum-600 dark:text-cream-100">{v.profiles?.name ?? "—"}</p>
+                  <p className="text-[11.5px] text-plum-400 dark:text-cream-100/60">{formatDate(v.redeemed_at)}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-bold text-plum-600 dark:text-cream-100">{formatIDR(v.redeemed_amount ?? v.value)}</p>
+                  <Badge status={v.status} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty card">Belum ada riwayat redeem.</div>
+        )}
+      </div>
     </div>
   );
 }

@@ -48,78 +48,101 @@ export default async function LandingPage() {
     <main className="min-h-screen bg-cream-50 text-plum-700 dark:bg-plum-900 dark:text-cream-100">
       {/* Hero */}
       <section
-        className="relative overflow-hidden px-6 pt-14 pb-11 text-white"
+        className="relative overflow-hidden px-6 pt-10 pb-11 text-white sm:px-8 sm:pt-12 lg:pb-20 lg:pt-16"
         style={{ background: "radial-gradient(circle at 18% -14%, #6B3548, #3B1F2B 52%, #1a0c12 122%)" }}
       >
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full"
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full lg:h-96 lg:w-96 lg:-right-24 lg:-top-24"
           style={{ background: "radial-gradient(circle, rgba(201,163,116,0.4), transparent 70%)" }}
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-24 -left-10 h-52 w-52 rounded-full"
+          className="pointer-events-none absolute -bottom-24 -left-10 h-52 w-52 rounded-full lg:h-80 lg:w-80"
           style={{ background: "radial-gradient(circle, rgba(201,123,132,0.28), transparent 70%)" }}
         />
 
-        <div className="relative z-10 mx-auto max-w-md">
-          <div className="mb-6 flex items-center gap-2.5">
-            <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-gradient-to-br from-gold-300 to-gold-500 font-display text-sm font-bold text-plum-900 shadow-pop">
-              A
-            </div>
-            <span className="font-display text-sm font-bold">Aurora Hijab</span>
-          </div>
-
-          <p className="mb-4 inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.22em] text-rose-200">
-            <span className="inline-block h-px w-4 bg-gold-400" />
-            Voucher Reward Campaign
-          </p>
-
-          <h1 className="font-display text-[32px] font-semibold leading-[1.1] md:text-[40px]">
-            Buat konten.
-            <br />
-            Dapatkan voucher
-            <br />
-            hingga <span className="text-gold-400">Rp50.000</span>.
-          </h1>
-
-          <p className="mt-4 max-w-[420px] text-[15px] text-white/80">
-            Lakukan pembelian Series Agustin melalui Agen Aurora Hijab, unggah struk, buat konten
-            orisinal, dan klaim reward-mu. Voucher eksklusif hanya dapat ditukarkan untuk{" "}
-            {REDEEM_PRODUCT_NAME}.
-          </p>
-
-          <div className="mt-6">
-            <a href="#join" className="btn-gold inline-flex max-w-[300px]">
-              <IconSparkles className="h-[17px] w-[17px]" /> Ikutan Sekarang
-            </a>
-          </div>
-
-          <div className="mt-7 grid grid-cols-4 gap-2">
-            {[
-              ["20K", "Story Photo"],
-              ["30K", "Feed Photo"],
-              ["40K", "Feed Reels"],
-              ["50K", "Maksimum"],
-            ].map(([amt, lbl], i) => (
-              <div
-                key={lbl}
-                className={cn(
-                  "rounded-2xl border p-3 text-center backdrop-blur",
-                  i === 3
-                    ? "border-transparent bg-gradient-to-br from-gold-300 to-gold-500 text-plum-900 shadow-pop"
-                    : "border-white/20 bg-white/10"
-                )}
-              >
-                <p className="font-mono text-[13.5px] font-bold">{amt}</p>
-                <p className={cn("mt-1 text-[9px] uppercase tracking-wide", i === 3 ? "text-plum-900/90" : "text-white/75")}>
-                  {lbl}
-                </p>
+        <div className="relative z-10 mx-auto max-w-md lg:grid lg:max-w-6xl lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-14">
+          {/* Left: brand mark, headline, copy, primary CTA — the focal column on every breakpoint */}
+          <div>
+            <div className="mb-6 flex items-center gap-2.5 lg:mb-8">
+              <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-gradient-to-br from-gold-300 to-gold-500 font-display text-sm font-bold text-plum-900 shadow-pop">
+                A
               </div>
-            ))}
+              <span className="font-display text-sm font-bold">Aurora Hijab</span>
+            </div>
+
+            <p className="mb-4 inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.22em] text-rose-200">
+              <span className="inline-block h-px w-4 bg-gold-400" />
+              Voucher Reward Campaign
+            </p>
+
+            <h1 className="font-display text-[32px] font-semibold leading-[1.1] sm:text-[40px] lg:text-[56px] xl:text-[62px]">
+              Buat konten.
+              <br />
+              Dapatkan voucher
+              <br />
+              hingga <span className="text-gold-400">Rp50.000</span>.
+            </h1>
+
+            <p className="mt-4 max-w-[420px] text-[15px] text-white/80 lg:max-w-[460px] lg:text-base">
+              Lakukan pembelian Series Agustin melalui Agen Aurora Hijab, unggah struk, buat konten
+              orisinal, dan klaim reward-mu. Voucher eksklusif hanya dapat ditukarkan untuk{" "}
+              {REDEEM_PRODUCT_NAME}.
+            </p>
+
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:mt-9">
+              <a href="#join" className="btn-gold inline-flex sm:w-auto">
+                <IconSparkles className="h-[17px] w-[17px]" /> Ikutan Sekarang
+              </a>
+              <a
+                href="#about"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border-[1.5px] border-white/25 px-5 py-3 text-sm font-semibold text-white/90 transition hover:border-white/50 hover:bg-white/5 sm:w-auto"
+              >
+                Cara Kerja
+              </a>
+            </div>
+
+            <div className="mt-8 hidden items-center gap-2 text-white/60 lg:flex">
+              <span className="text-[11.5px] font-bold uppercase tracking-wider">Scroll ke bawah untuk ikutan</span>
+              <IconChevronDown className="h-4 w-4 animate-bounce text-gold-400" />
+            </div>
           </div>
 
-          <div className="mt-6 flex flex-col items-center gap-1.5 pb-1 text-white/70">
+          {/* Right on desktop / below on mobile: reward tiers, framed as a distinct visual block
+              instead of competing with the headline for attention. */}
+          <div className="mt-8 lg:mt-0">
+            <div className="rounded-[28px] border border-white/15 bg-white/[0.06] p-4 backdrop-blur-sm sm:p-5 lg:p-6">
+              <p className="mb-3 text-[11px] font-extrabold uppercase tracking-wider text-white/60 lg:mb-4">
+                Nilai reward per jenis konten
+              </p>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-2">
+                {[
+                  ["20K", "Story Photo"],
+                  ["30K", "Feed Photo"],
+                  ["40K", "Feed Reels"],
+                  ["50K", "Maksimum"],
+                ].map(([amt, lbl], i) => (
+                  <div
+                    key={lbl}
+                    className={cn(
+                      "rounded-2xl border p-3 text-center backdrop-blur lg:p-4",
+                      i === 3
+                        ? "border-transparent bg-gradient-to-br from-gold-300 to-gold-500 text-plum-900 shadow-pop"
+                        : "border-white/20 bg-white/10"
+                    )}
+                  >
+                    <p className="font-mono text-[13.5px] font-bold lg:text-base">{amt}</p>
+                    <p className={cn("mt-1 text-[9px] uppercase tracking-wide lg:text-[10px]", i === 3 ? "text-plum-900/90" : "text-white/75")}>
+                      {lbl}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col items-center gap-1.5 pb-1 text-white/70 lg:hidden">
             <span className="text-[11.5px] font-bold">Scroll ke bawah untuk ikutan</span>
             <IconChevronDown className="h-4 w-4 animate-bounce text-gold-400" />
           </div>
@@ -127,10 +150,10 @@ export default async function LandingPage() {
       </section>
 
       {/* Body sections — overlaps the hero with a rounded top corner, matching the mockup */}
-      <div className="relative z-10 -mt-7 space-y-6 rounded-t-[2.5rem] bg-cream-50 px-5 pb-4 pt-7 dark:bg-plum-900 md:px-8">
-        <div className="mx-auto max-w-2xl space-y-6">
+      <div className="relative z-10 -mt-7 space-y-6 rounded-t-[2.5rem] bg-cream-50 px-5 pb-4 pt-7 dark:bg-plum-900 md:px-8 lg:px-12 lg:pt-10">
+        <div className="mx-auto max-w-2xl space-y-6 lg:max-w-4xl">
           {/* Tentang Campaign */}
-          <section>
+          <section id="about" className="scroll-mt-6">
             <p className="section-title mb-3">Tentang Campaign</p>
             <div className="card card-accent">
               <p className="text-[13.5px] leading-relaxed text-plum-400 dark:text-cream-100/70">
@@ -297,27 +320,31 @@ export default async function LandingPage() {
                   Masuk (Login)
                 </Link>
               </div>
-              <hr className="my-5 border-cream-200 dark:border-plum-500/30" />
-              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-plum-400 dark:text-cream-100/60">
-                Login lainnya
-              </p>
-              <div className="flex flex-wrap justify-center gap-2.5">
-                <Link
-                  href="/agent-login"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-cream-200 bg-white px-4 py-2.5 text-[12.5px] font-bold text-plum-400 dark:border-plum-500/40 dark:bg-plum-700/60 dark:text-cream-100/80"
-                >
-                  <IconStore className="h-3.5 w-3.5" /> Agen Cabang
-                </Link>
-                <Link
-                  href="/admin-login"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-cream-200 bg-white px-4 py-2.5 text-[12.5px] font-bold text-plum-400 dark:border-plum-500/40 dark:bg-plum-700/60 dark:text-cream-100/80"
-                >
-                  <IconShield className="h-3.5 w-3.5" /> Super Admin
-                </Link>
-              </div>
             </div>
           </section>
         </div>
+
+        {/* Footer — internal staff logins live here, well out of the primary
+            customer register/login flow above (they're not for customers). */}
+        <footer className="mx-auto mt-2 max-w-2xl px-1 pb-8 pt-4 text-center">
+          <p className="mb-2.5 text-[10.5px] font-bold uppercase tracking-wider text-plum-400/70 dark:text-cream-100/40">
+            Untuk staf Aurora Hijab
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 text-[11.5px]">
+            <Link
+              href="/agent-login"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold text-plum-400/80 hover:bg-cream-100 dark:text-cream-100/50 dark:hover:bg-plum-500/20"
+            >
+              <IconStore className="h-3 w-3" /> Login Agen Cabang
+            </Link>
+            <Link
+              href="/admin-login"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold text-plum-400/80 hover:bg-cream-100 dark:text-cream-100/50 dark:hover:bg-plum-500/20"
+            >
+              <IconShield className="h-3 w-3" /> Login Super Admin
+            </Link>
+          </div>
+        </footer>
       </div>
     </main>
   );

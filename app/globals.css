@@ -74,16 +74,16 @@ body {
     @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide;
   }
   .badge-valid, .badge-approved, .badge-active, .badge-redeemed {
-    @apply bg-success-bg text-success;
+    @apply bg-success-bg text-success dark:bg-success-bg/20;
   }
   .badge-invalid, .badge-rejected, .badge-expired {
-    @apply bg-danger-bg text-danger;
+    @apply bg-danger-bg text-danger dark:bg-danger-bg/20;
   }
   .badge-hold, .badge-pending {
-    @apply bg-hold-bg text-hold;
+    @apply bg-hold-bg text-hold dark:bg-hold-bg/20;
   }
   .badge-reserved {
-    @apply bg-warn-bg text-warn;
+    @apply bg-warn-bg text-warn dark:bg-warn-bg/20;
   }
   .input {
     @apply w-full rounded-2xl border-[1.5px] border-cream-200 bg-cream-50/70 px-4 py-3 text-sm
@@ -113,10 +113,10 @@ body {
   .notice {
     @apply flex items-start gap-2.5 rounded-2xl border border-transparent px-3.5 py-3 text-[12.5px] font-medium;
   }
-  .notice-info { @apply bg-hold-bg text-hold; }
-  .notice-warn { @apply bg-warn-bg text-warn; }
-  .notice-danger { @apply bg-danger-bg text-danger; }
-  .notice-success { @apply bg-success-bg text-success; }
+  .notice-info { @apply bg-hold-bg text-hold dark:bg-hold-bg/20; }
+  .notice-warn { @apply bg-warn-bg text-warn dark:bg-warn-bg/20; }
+  .notice-danger { @apply bg-danger-bg text-danger dark:bg-danger-bg/20; }
+  .notice-success { @apply bg-success-bg text-success dark:bg-success-bg/20; }
   .ticket {
     @apply relative overflow-hidden rounded-[22px] text-white shadow-pop;
     background: linear-gradient(150deg, #3B1F2B 0%, #54293A 55%, #3B1F2B 100%);

@@ -70,5 +70,30 @@ export const billReviewSchema = z.object({
 export const redeemSchema = z.object({
   code: z.string().trim().min(4, "Kode voucher tidak valid"),
   productName: z.string().trim().min(1, "Pilih produk Series Sarimbit"),
-  amount: z.coerce.number().nonnegative(),
+});
+
+export const createAgentSchema = z.object({
+  name: z.string().trim().min(3, "Nama minimal 3 karakter").max(100),
+  username: usernameSchema,
+  whatsapp: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9]{9,15}$/, "Nomor WhatsApp tidak valid"),
+  password: z.string().min(8, "Password minimal 8 karakter"),
+  branchId: z.string().uuid("Pilih cabang yang valid"),
+});
+
+export const updateAgentSchema = z.object({
+  agentId: z.string().uuid(),
+  name: z.string().trim().min(3, "Nama minimal 3 karakter").max(100),
+  whatsapp: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9]{9,15}$/, "Nomor WhatsApp tidak valid"),
+  branchId: z.string().uuid("Pilih cabang yang valid"),
+  password: z.union([z.string().min(8, "Password minimal 8 karakter"), z.literal("")]).optional(),
+});
+
+export const deleteAgentSchema = z.object({
+  agentId: z.string().uuid(),
 });
