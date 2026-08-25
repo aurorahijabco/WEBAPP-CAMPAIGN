@@ -92,6 +92,9 @@ export async function redeemVoucher(_prev: ActionState, formData: FormData): Pro
 
 function mapRedeemError(message: string): string {
   if (message.includes("VOUCHER_NOT_FOUND")) return "Kode voucher tidak ditemukan.";
+  // Check the more specific CUSTOMER_BRANCH_MISMATCH first — it's a superstring
+  // match of "BRANCH_MISMATCH" so the generic check below would shadow it.
+  if (message.includes("CUSTOMER_BRANCH_MISMATCH")) return "Voucher hanya dapat diredeem di cabang tempat pembelian.";
   if (message.includes("BRANCH_MISMATCH")) return "Voucher ini hanya bisa ditukar di cabang tempat klaim diajukan.";
   if (message.includes("OUTSIDE_REDEMPTION_PERIOD")) return "Saat ini di luar periode redemption.";
   if (message.includes("ALREADY_REDEEMED")) return "Voucher ini sudah pernah ditukarkan.";

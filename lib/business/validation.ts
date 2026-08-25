@@ -109,7 +109,6 @@ const branchCodeSchema = z
 export const createBranchSchema = z.object({
   name: z.string().trim().min(3, "Nama cabang minimal 3 karakter").max(150),
   code: branchCodeSchema,
-  qrCode: z.string().trim().min(3, "Kode QR minimal 3 karakter").max(100),
   address: z.string().trim().max(300).optional().or(z.literal("")),
 });
 
@@ -117,7 +116,6 @@ export const updateBranchSchema = z.object({
   branchId: z.string().uuid(),
   name: z.string().trim().min(3, "Nama cabang minimal 3 karakter").max(150),
   code: branchCodeSchema,
-  qrCode: z.string().trim().min(3, "Kode QR minimal 3 karakter").max(100),
   address: z.string().trim().max(300).optional().or(z.literal("")),
 });
 
