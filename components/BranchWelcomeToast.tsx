@@ -44,14 +44,21 @@ export function BranchWelcomeToast({ branchName }: { branchName: string | null }
       <div
         role="status"
         className={cn(
-          "notice notice-success shadow-pop max-w-[min(92vw,380px)] transition-all duration-300 ease-out",
+          "flex max-w-[min(92vw,380px)] items-center gap-2.5 rounded-2xl border px-4 py-3 shadow-pop",
+          "border-gold-400/50 bg-white text-plum-700",
+          "dark:border-gold-400/30 dark:bg-plum-700 dark:text-cream-100",
+          "transition-all duration-300 ease-out",
           visible ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
         )}
       >
-        <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
-        <span className="text-[13px] font-semibold">Selamat Datang di Aurora Campaign - Cabang {branchName}</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-300 to-gold-500 text-plum-900">
+          <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+        </span>
+        <span className="text-[13px] font-semibold leading-snug">
+          Selamat Datang di Aurora Campaign - Cabang {branchName}
+        </span>
       </div>
     </div>
   );
