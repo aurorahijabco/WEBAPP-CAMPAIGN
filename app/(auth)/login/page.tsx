@@ -6,6 +6,7 @@ import { loginCustomer } from "../actions";
 import { Input, Label, FieldError } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { AuthShell } from "@/components/AuthShell";
+import { ExpiredNotice } from "@/components/ExpiredNotice";
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginCustomer, undefined);
@@ -23,6 +24,7 @@ export default function LoginPage() {
         </>
       }
     >
+      <ExpiredNotice />
       <form action={formAction} className="space-y-4">
         <div>
           <Label htmlFor="username">Username</Label>
@@ -39,11 +41,6 @@ export default function LoginPage() {
           {pending ? "Memproses..." : "Masuk"}
         </Button>
       </form>
-
-      <div className="mt-5 flex justify-center gap-4 text-xs text-plum-400 dark:text-cream-100/60">
-        <Link href="/agent-login" className="underline underline-offset-2">Login Agen</Link>
-        <Link href="/admin-login" className="underline underline-offset-2">Login Admin</Link>
-      </div>
     </AuthShell>
   );
 }

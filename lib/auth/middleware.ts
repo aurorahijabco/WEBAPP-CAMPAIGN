@@ -47,7 +47,11 @@ export async function updateSession(request: NextRequest) {
   const role = (data?.profiles as unknown as { role: AppRole } | null)?.role;
 
   if (error || !data || !role) {
-    const res = redirectTo(request, loginPathFor(path));
+    // There was a cookie but it no longer matches a valid session row
+    // (expired or invalidated elsewhere) — as opposed to no cookie at all —
+    // so tell the login page to show a "session expired" notice instead of
+    // silently bouncing the user back with no explanation.
+    const res = redirectTo(request, loginPathFor(path), { expired: "1" });
     res.cookies.delete(SESSION_COOKIE_NAME);
     return res;
   }
@@ -62,9 +66,12 @@ export async function updateSession(request: NextRequest) {
   return NextResponse.next();
 }
 
-function redirectTo(request: NextRequest, pathname: string) {
+function redirectTo(request: NextRequest, pathname: string, extraParams?: Record<string, string>) {
   const url = request.nextUrl.clone();
   url.pathname = pathname;
-  url.searchParams.delete("next");
+  url.search = "";
+  if (extraParams) {
+    for (const [key, value] of Object.entries(extraParams)) url.searchParams.set(key, value);
+  }
   return NextResponse.redirect(url);
 }

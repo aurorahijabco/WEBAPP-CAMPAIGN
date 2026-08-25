@@ -5,6 +5,7 @@ import { loginAdmin } from "../actions";
 import { Input, Label, FieldError } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { AuthShell } from "@/components/AuthShell";
+import { ExpiredNotice } from "@/components/ExpiredNotice";
 
 export default function AdminLoginPage() {
   const [state, formAction, pending] = useActionState(loginAdmin, undefined);
@@ -15,6 +16,7 @@ export default function AdminLoginPage() {
       subtitle="Akses terbatas untuk tim internal Aurora Hijab."
       eyebrow="Portal Admin"
     >
+      <ExpiredNotice />
       <form action={formAction} className="space-y-4">
         <div>
           <Label htmlFor="username">Username</Label>

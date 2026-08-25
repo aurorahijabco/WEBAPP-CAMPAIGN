@@ -49,7 +49,7 @@ export function BottomNav() {
     <nav
       className="fixed bottom-3 left-1/2 z-40 flex w-[calc(100%-24px)] max-w-md -translate-x-1/2
                  items-stretch justify-around gap-0.5 rounded-[22px] border border-cream-200
-                 bg-white p-1.5 shadow-pop"
+                 bg-white p-1.5 shadow-pop dark:border-plum-500/40 dark:bg-plum-700/90"
     >
       {ITEMS.map((item) => {
         const active = pathname.startsWith(item.href);
@@ -58,7 +58,7 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className="-mt-4 flex flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-[10px] font-bold text-plum-400"
+              className="-mt-4 flex flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-[10px] font-bold text-plum-400 dark:text-cream-100/70"
             >
               <span
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-gold-300 to-gold-500 text-plum-900 shadow-pop [&>svg]:h-[18px] [&>svg]:w-[18px]"
@@ -76,7 +76,9 @@ export function BottomNav() {
             className={cn(
               "flex flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-[10px] font-bold transition-colors",
               "[&>svg]:h-[19px] [&>svg]:w-[19px]",
-              active ? "bg-cream-100 text-plum-600 [&>svg]:stroke-gold-500" : "text-plum-300 [&>svg]:stroke-plum-300"
+              active
+                ? "bg-cream-100 text-plum-600 [&>svg]:stroke-gold-500 dark:bg-plum-500/30 dark:text-cream-100"
+                : "text-plum-300 [&>svg]:stroke-plum-300 dark:text-cream-100/40 dark:[&>svg]:stroke-cream-100/40"
             )}
           >
             {item.icon}

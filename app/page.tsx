@@ -297,27 +297,31 @@ export default async function LandingPage() {
                   Masuk (Login)
                 </Link>
               </div>
-              <hr className="my-5 border-cream-200 dark:border-plum-500/30" />
-              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-plum-400 dark:text-cream-100/60">
-                Login lainnya
-              </p>
-              <div className="flex flex-wrap justify-center gap-2.5">
-                <Link
-                  href="/agent-login"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-cream-200 bg-white px-4 py-2.5 text-[12.5px] font-bold text-plum-400 dark:border-plum-500/40 dark:bg-plum-700/60 dark:text-cream-100/80"
-                >
-                  <IconStore className="h-3.5 w-3.5" /> Agen Cabang
-                </Link>
-                <Link
-                  href="/admin-login"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-cream-200 bg-white px-4 py-2.5 text-[12.5px] font-bold text-plum-400 dark:border-plum-500/40 dark:bg-plum-700/60 dark:text-cream-100/80"
-                >
-                  <IconShield className="h-3.5 w-3.5" /> Super Admin
-                </Link>
-              </div>
             </div>
           </section>
         </div>
+
+        {/* Footer — internal staff logins live here, well out of the primary
+            customer register/login flow above (they're not for customers). */}
+        <footer className="mx-auto mt-2 max-w-2xl px-1 pb-8 pt-4 text-center">
+          <p className="mb-2.5 text-[10.5px] font-bold uppercase tracking-wider text-plum-400/70 dark:text-cream-100/40">
+            Untuk staf Aurora Hijab
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 text-[11.5px]">
+            <Link
+              href="/agent-login"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold text-plum-400/80 hover:bg-cream-100 dark:text-cream-100/50 dark:hover:bg-plum-500/20"
+            >
+              <IconStore className="h-3 w-3" /> Login Agen Cabang
+            </Link>
+            <Link
+              href="/admin-login"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold text-plum-400/80 hover:bg-cream-100 dark:text-cream-100/50 dark:hover:bg-plum-500/20"
+            >
+              <IconShield className="h-3 w-3" /> Login Super Admin
+            </Link>
+          </div>
+        </footer>
       </div>
     </main>
   );
