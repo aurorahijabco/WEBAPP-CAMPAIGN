@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
-const VISIBLE_MS = 2000;
+const VISIBLE_MS = 3500;
 const TRANSITION_MS = 300;
 
 /**
