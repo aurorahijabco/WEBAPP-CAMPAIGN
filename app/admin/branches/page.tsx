@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { BranchToggle } from "./BranchToggle";
+import { AddBranchCard } from "./AddBranchCard";
+import { BranchRow } from "./BranchRow";
 
 export default async function AdminBranchesPage() {
   const supabase = createAdminClient();
@@ -7,19 +8,22 @@ export default async function AdminBranchesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-2xl text-plum-600 dark:text-cream-100">Daftar Cabang</h1>
+      <div>
+        <h1 className="font-display text-2xl text-plum-600 dark:text-cream-100">Kelola Cabang</h1>
+        <p className="mt-1 text-sm text-plum-400 dark:text-cream-100/70">
+          Tambah, edit, atau hapus data cabang. Cabang yang masih memiliki agent, struk, klaim, atau voucher terkait
+          tidak bisa dihapus — nonaktifkan saja lewat toggle Aktif/Nonaktif.
+        </p>
+      </div>
+
+      <AddBranchCard />
+
       <div className="card divide-y divide-cream-200 p-2 dark:divide-plum-500/30">
-        {branches?.map((b) => (
-          <div key={b.id} className="flex items-center justify-between gap-3 px-2.5 py-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-plum-600 dark:text-cream-100">{b.name}</p>
-              <p className="text-xs text-plum-400 dark:text-cream-100/60">
-                {b.code} · {b.address}
-              </p>
-            </div>
-            <BranchToggle branchId={b.id} active={b.active} />
-          </div>
-        ))}
+        {branches?.length ? (
+          branches.map((b) => <BranchRow key={b.id} branch={b} />)
+        ) : (
+          <p className="empty">Belum ada cabang.</p>
+        )}
       </div>
     </div>
   );
