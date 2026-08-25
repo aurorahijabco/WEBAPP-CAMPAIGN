@@ -6,10 +6,12 @@ import { BranchToggle } from "./BranchToggle";
 import { DeleteBranchButton } from "./DeleteBranchButton";
 import { Button } from "@/components/ui/Button";
 
-type Branch = { id: string; name: string; code: string | null; qr_code: string | null; address: string | null; active: boolean };
+type Branch = { id: string; name: string; code: string | null; address: string | null; active: boolean };
 
 export function BranchRow({ branch }: { branch: Branch }) {
   const [editing, setEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const qrPath = branch.code ? `/?branch=${branch.code}` : null;
 
   if (editing) {
     return (
@@ -33,6 +35,19 @@ export function BranchRow({ branch }: { branch: Branch }) {
         <p className="truncate text-xs text-plum-400 dark:text-cream-100/60">
           {branch.code ?? "—"} · {branch.address ?? "Alamat belum diisi"}
         </p>
+        {qrPath && (
+          <button
+            type="button"
+            onClick={async () => {
+              await navigator.clipboard.writeText(`${window.location.origin}${qrPath}`);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="mt-1 font-mono text-[10.5px] text-gold-500 underline underline-offset-2"
+          >
+            {copied ? "Link QR tersalin" : `Salin link QR (${qrPath})`}
+          </button>
+        )}
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <BranchToggle branchId={branch.id} active={branch.active} />

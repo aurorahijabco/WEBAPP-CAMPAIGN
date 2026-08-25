@@ -9,7 +9,7 @@ type Props =
   | { mode: "create"; onDone?: () => void }
   | {
       mode: "edit";
-      branch: { id: string; name: string; code: string | null; qr_code: string | null; address: string | null };
+      branch: { id: string; name: string; code: string | null; address: string | null };
       onDone?: () => void;
     };
 
@@ -49,16 +49,9 @@ export function BranchForm(props: Props) {
         />
       </div>
 
-      <div>
-        <Label htmlFor={`qrCode-${props.mode}`}>Kode QR</Label>
-        <Input
-          id={`qrCode-${props.mode}`}
-          name="qrCode"
-          required
-          placeholder="qr-kemang-001"
-          defaultValue={props.mode === "edit" ? props.branch.qr_code ?? "" : ""}
-        />
-      </div>
+      <p className="text-xs text-plum-400 dark:text-cream-100/60">
+        Kode cabang ini digunakan sebagai identifier di QR cabang (format: <code>/?branch=KODE</code>).
+      </p>
 
       <div>
         <Label htmlFor={`address-${props.mode}`}>Alamat</Label>

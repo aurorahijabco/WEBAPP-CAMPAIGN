@@ -14,7 +14,6 @@ export interface Branch {
   id: string;
   name: string;
   code: string;
-  qr_code: string;
   address: string | null;
   active: boolean;
   created_at: string;

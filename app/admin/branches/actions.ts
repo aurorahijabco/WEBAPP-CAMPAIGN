@@ -25,22 +25,20 @@ export async function createBranch(_prev: ActionState, formData: FormData): Prom
   const parsed = createBranchSchema.safeParse({
     name: formData.get("name"),
     code: formData.get("code"),
-    qrCode: formData.get("qrCode"),
     address: formData.get("address") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
-  const { name, code, qrCode, address } = parsed.data;
+  const { name, code, address } = parsed.data;
 
   const { error } = await supabase.from("branches").insert({
     name,
     code,
-    qr_code: qrCode,
     address: address || null,
   });
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
-      return { error: "Kode cabang atau kode QR sudah digunakan cabang lain." };
+      return { error: "Kode cabang sudah digunakan cabang lain." };
     }
     return { error: "Gagal menambahkan cabang: " + error.message };
   }
@@ -57,20 +55,19 @@ export async function updateBranch(_prev: ActionState, formData: FormData): Prom
     branchId: formData.get("branchId"),
     name: formData.get("name"),
     code: formData.get("code"),
-    qrCode: formData.get("qrCode"),
     address: formData.get("address") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
-  const { branchId, name, code, qrCode, address } = parsed.data;
+  const { branchId, name, code, address } = parsed.data;
 
   const { error } = await supabase
     .from("branches")
-    .update({ name, code, qr_code: qrCode, address: address || null })
+    .update({ name, code, address: address || null })
     .eq("id", branchId);
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
-      return { error: "Kode cabang atau kode QR sudah digunakan cabang lain." };
+      return { error: "Kode cabang sudah digunakan cabang lain." };
     }
     return { error: "Gagal memperbarui cabang: " + error.message };
   }
@@ -92,9 +89,18 @@ export async function deleteBranch(_prev: ActionState, formData: FormData): Prom
   // claims, and vouchers keep branch_id NOT NULL by design (they're
   // transactional records that must never be silently orphaned or
   // cascade-deleted), so a branch with real history can never be deleted —
-  // only deactivated via the existing Aktif/Nonaktif toggle.
-  const [{ count: agentCount }, { count: billCount }, { count: claimCount }, { count: voucherCount }] = await Promise.all([
+  // only deactivated via the existing Aktif/Nonaktif toggle. Customers can
+  // also carry a branch_id now (set at registration from a QR scan), so
+  // they're checked here too, separately from agents.
+  const [
+    { count: agentCount },
+    { count: customerCount },
+    { count: billCount },
+    { count: claimCount },
+    { count: voucherCount },
+  ] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("branch_id", branchId).eq("role", "agent"),
+    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("branch_id", branchId).eq("role", "customer"),
     supabase.from("bills").select("*", { count: "exact", head: true }).eq("branch_id", branchId),
     supabase.from("claims").select("*", { count: "exact", head: true }).eq("branch_id", branchId),
     supabase.from("vouchers").select("*", { count: "exact", head: true }).eq("branch_id", branchId),
@@ -102,6 +108,7 @@ export async function deleteBranch(_prev: ActionState, formData: FormData): Prom
 
   const blockers: string[] = [];
   if (agentCount) blockers.push(`${agentCount} agent`);
+  if (customerCount) blockers.push(`${customerCount} customer`);
   if (billCount) blockers.push(`${billCount} struk`);
   if (claimCount) blockers.push(`${claimCount} klaim`);
   if (voucherCount) blockers.push(`${voucherCount} voucher`);

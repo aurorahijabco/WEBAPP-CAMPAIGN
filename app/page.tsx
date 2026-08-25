@@ -41,8 +41,16 @@ function SkSection({ title, items }: { title: string; items: React.ReactNode[] }
   );
 }
 
-export default async function LandingPage() {
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ branch?: string }>;
+}) {
   const period = await getRedemptionPeriod();
+  const { branch } = await searchParams;
+  // Carry the QR-detected branch code through to Register — final
+  // resolution/validation against the database happens there, never here.
+  const registerHref = branch ? `/register?branch=${encodeURIComponent(branch)}` : "/register";
 
   return (
     <main className="min-h-screen bg-cream-50 text-plum-700 dark:bg-plum-900 dark:text-cream-100">
@@ -313,7 +321,7 @@ export default async function LandingPage() {
                 Buat akun baru atau masuk ke akun yang sudah ada.
               </p>
               <div className="mt-5 flex flex-col gap-2.5">
-                <Link href="/register" className="btn-primary">
+                <Link href={registerHref} className="btn-primary">
                   Buat Akun
                 </Link>
                 <Link href="/login" className="btn-outline">
