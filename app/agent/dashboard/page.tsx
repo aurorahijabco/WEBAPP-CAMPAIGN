@@ -12,9 +12,12 @@ export default async function AgentDashboard() {
 
   const { data: profile } = await supabase.from("profiles").select("branch_id").eq("id", user.id).single();
 
+  // Only the columns the Agent Dashboard actually renders — the voucher's
+  // code/id is never fetched here at all (not just hidden in the UI), since
+  // agents on this page should only ever see name/date/nominal/status.
   const { data: vouchers } = await supabase
     .from("vouchers")
-    .select("*, profiles!vouchers_customer_id_fkey(name)")
+    .select("id, status, value, redeemed_amount, redeemed_at, created_at, profiles!vouchers_customer_id_fkey(name)")
     .eq("branch_id", profile?.branch_id)
     .order("created_at", { ascending: false });
 
@@ -51,10 +54,8 @@ export default async function AgentDashboard() {
             {active.map((v: any) => (
               <div key={v.id} className="flex items-center justify-between gap-3 px-2.5 py-3">
                 <div className="min-w-0">
-                  <p className="truncate font-mono text-[13px] font-bold text-plum-600 dark:text-cream-100">{v.code}</p>
-                  <p className="text-[11.5px] text-plum-400 dark:text-cream-100/60">
-                    {v.profiles?.name} · {formatDate(v.created_at)}
-                  </p>
+                  <p className="truncate text-sm font-bold text-plum-600 dark:text-cream-100">{v.profiles?.name ?? "—"}</p>
+                  <p className="text-[11.5px] text-plum-400 dark:text-cream-100/60">{formatDate(v.created_at)}</p>
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-sm font-bold text-plum-600 dark:text-cream-100">{formatIDR(v.value)}</p>
