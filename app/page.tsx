@@ -95,55 +95,51 @@ export default async function LandingPage({
     <main className="min-h-screen bg-cream-50 text-plum-700 dark:bg-plum-900 dark:text-cream-100">
       <BranchWelcomeToast branchName={welcomeBranchName} />
 
-      {/* Hero — leads with the benefit, not the mechanics: what you get, in one line. */}
+      {/* Hero — one soft glow behind the headline instead of layered decorative
+          blobs, and a plain kicker -> headline -> subheadline -> CTA order so
+          hierarchy reads at a glance. This block is an intentionally "always
+          dark" brand surface (white text on the plum gradient), so it reads
+          the same regardless of the site's light/dark toggle. */}
       <section
-        className="relative overflow-hidden px-6 pb-12 pt-10 text-white sm:px-8 sm:pt-12 lg:pb-16 lg:pt-16"
-        style={{ background: "radial-gradient(circle at 18% -14%, #6B3548, #3B1F2B 52%, #1a0c12 122%)" }}
+        className="relative overflow-hidden px-6 pb-12 pt-12 text-white sm:px-8 sm:pt-14 lg:pb-16 lg:pt-20"
+        style={{ background: "radial-gradient(circle at 50% -18%, #6B3548, #2c1620 58%, #170a0f 122%)" }}
       >
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full lg:h-96 lg:w-96 lg:-right-24 lg:-top-24"
-          style={{ background: "radial-gradient(circle, rgba(201,163,116,0.4), transparent 70%)" }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-24 -left-10 h-52 w-52 rounded-full lg:h-80 lg:w-80"
-          style={{ background: "radial-gradient(circle, rgba(201,123,132,0.28), transparent 70%)" }}
+          className="pointer-events-none absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full lg:h-[26rem] lg:w-[26rem]"
+          style={{ background: "radial-gradient(circle, rgba(201,163,116,0.3), transparent 72%)" }}
         />
 
-        <div className="relative z-10 mx-auto max-w-md text-center lg:max-w-2xl">
-          <div className="mb-6 flex items-center justify-center gap-2.5">
+        <div className="relative z-10 mx-auto flex max-w-md flex-col items-center text-center lg:max-w-2xl">
+          <div className="mb-8 flex items-center gap-2.5 lg:mb-10">
             <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-gradient-to-br from-gold-300 to-gold-500 font-display text-sm font-bold text-plum-900 shadow-pop">
               A
             </div>
             <span className="font-display text-sm font-bold">Aurora Hijab</span>
           </div>
 
-          <h1 className="font-display text-[30px] font-semibold leading-[1.15] sm:text-[38px] lg:text-[46px]">
-            Dapat Voucher hingga <span className="text-gold-400">Rp50.000</span> 🎁
+          <p className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.24em] text-gold-300/90">
+            Voucher Reward Campaign
+          </p>
+
+          <h1 className="text-balance font-display text-[clamp(1.85rem,1.4rem+2.2vw,2.9rem)] font-semibold leading-[1.12]">
+            Dapat Voucher hingga <span className="text-gold-400">Rp50.000</span>
           </h1>
 
-          <p className="mx-auto mt-4 max-w-[420px] text-[15px] text-white/80 lg:max-w-[520px] lg:text-base">
+          <p className="mt-5 max-w-[420px] text-pretty text-[15px] leading-relaxed text-white/75 lg:max-w-[480px] lg:text-base">
             Beli Series Agustin, buat konten, lalu klaim voucher untuk belanja Series Sarimbit.
           </p>
 
-          <div className="mt-7 flex justify-center">
-            <a href="#join" className="btn-gold inline-flex">
-              <IconSparkles className="h-[17px] w-[17px]" /> Ikut Campaign
-            </a>
-          </div>
+          <a href="#join" className="btn-gold mt-8 inline-flex lg:mt-10">
+            <IconSparkles className="h-[17px] w-[17px]" /> Ikut Campaign
+          </a>
 
-          {/* Reward teaser — a light-touch strip, not a full breakdown, so the hero stays uncluttered. */}
-          <div className="mx-auto mt-8 flex max-w-[420px] flex-wrap justify-center gap-2 lg:max-w-none">
-            {REWARD_TIERS.slice(0, 3).map(([, lbl]) => (
-              <span
-                key={lbl}
-                className="rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-[11.5px] font-semibold text-white/85 backdrop-blur"
-              >
-                {lbl}
-              </span>
-            ))}
-          </div>
+          {/* Reward teaser — a single quiet line rather than competing badges, so the hero stays uncluttered. */}
+          <p className="mt-7 text-[11px] font-semibold uppercase tracking-wide text-white/45 lg:mt-9">
+            {REWARD_TIERS.slice(0, 3)
+              .map(([, lbl]) => lbl)
+              .join(" · ")}
+          </p>
         </div>
       </section>
 
