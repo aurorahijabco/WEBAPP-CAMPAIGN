@@ -7,3 +7,4 @@ node_modules
 *.log
 .DS_Store
 scripts/.seed-credentials.json
+tsconfig.tsbuildinfo
