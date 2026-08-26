@@ -206,8 +206,9 @@ export default async function LandingPage({
             </div>
           </section>
 
-          {/* Detail panjang — dikumpulkan di balik accordion, info krusial sudah tampil di atas */}
-          <section className="space-y-3">
+          {/* Detail panjang — dikumpulkan di balik accordion, info krusial sudah tampil di atas.
+              id="sk" is the target of the "Baca S&K" link on the register page. */}
+          <section id="sk" className="scroll-mt-6 space-y-3">
             <p className="section-title mb-0">Detail Lengkap</p>
             <Accordion title="Syarat Konten">
               <div className="space-y-0">

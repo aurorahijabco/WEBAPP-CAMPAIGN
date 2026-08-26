@@ -105,7 +105,10 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
             const tierSubs = submissions?.filter((s) => s.type === tier) ?? [];
             const latest = tierSubs[0];
             const approved = tierSubs.some((s) => s.status === "APPROVED");
-            const canSubmit = claim.purchase_status !== "INVALID" && !approved;
+            // Block resubmission while the latest submission for this tier is
+            // still PENDING/HOLD — only a REJECTED (or no) prior submission
+            // may be retried. Mirrors the server-side guard in submitContent.
+            const canSubmit = claim.purchase_status !== "INVALID" && !approved && (!latest || latest.status === "REJECTED");
 
             return (
               <div key={tier} className="card">

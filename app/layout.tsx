@@ -21,8 +21,12 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // suppressHydrationWarning: the inline theme-init script above adds the
+  // "dark" class to <html> before React hydrates (to avoid a flash of the
+  // wrong theme), which otherwise makes React log a harmless
+  // hydration-mismatch warning on every dark-mode page load.
   return (
-    <html lang="id">
+    <html lang="id" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
