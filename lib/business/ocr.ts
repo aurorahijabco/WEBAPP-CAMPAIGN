@@ -173,6 +173,10 @@ export async function extractReceiptData(imageBytes: Buffer, mimeType: string): 
         responseMimeType: "application/json",
         responseSchema: receiptSchema,
         temperature: 0,
+        // A hung Gemini call must never leave the user stuck on a loading
+        // screen indefinitely — fail fast and let the caller show a
+        // retry-friendly error instead.
+        httpOptions: { timeout: 25_000 },
       },
     });
     responseText = response.text;

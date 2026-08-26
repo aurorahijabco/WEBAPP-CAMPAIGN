@@ -43,6 +43,9 @@ export interface Bill {
   amount: number;
   items: BillItem[];
   photo_path: string;
+  photo_hash: string | null;
+  receipt_number: string | null;
+  merchant_name: string | null;
   status: BillStatus;
   ocr_raw: Record<string, unknown> | null;
   note: string | null;

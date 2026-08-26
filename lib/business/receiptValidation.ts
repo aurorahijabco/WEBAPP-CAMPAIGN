@@ -11,10 +11,8 @@ export interface ReceiptValidationContext {
   redemptionPeriodEnd: Date | null;
   /** `campaign_settings.min_claim_amount` — 0 means no minimum is enforced. */
   minClaimAmount: number;
-  /** Name of the branch the customer selected, for a loose merchant-name check. */
+  /** Name of the branch resolved for this claim (from OCR merchant match, or the customer's registered branch as fallback — never manual input), for a loose merchant-name check. */
   branchName: string;
-  /** The amount the customer typed in the form — untrusted, used only to flag a large mismatch for review. */
-  clientAmount: number;
 }
 
 export interface ReceiptValidationResult {
@@ -94,18 +92,6 @@ export function validateReceiptOcr(ocr: ReceiptOcrResult, ctx: ReceiptValidation
     flagReasons.push("Nama merchant tidak terbaca dari struk");
   }
 
-  // The client-typed amount is never used as the stored amount (OCR total
-  // always wins — see app/customer/actions.ts), but a large gap between the
-  // two is still useful signal for a human reviewer.
-  if (ctx.clientAmount > 0) {
-    const pctDiff = Math.abs(ctx.clientAmount - ocr.total) / ocr.total;
-    if (pctDiff > 0.1) {
-      flagReasons.push(
-        `Nominal input customer (Rp${ctx.clientAmount.toLocaleString("id-ID")}) berbeda signifikan dari hasil OCR (Rp${ocr.total.toLocaleString("id-ID")})`
-      );
-    }
-  }
-
   if (ocr.quality === "blurry" || ocr.quality === "partial") {
     flagReasons.push(`Kualitas foto struk: ${ocr.quality}`);
   }
@@ -114,4 +100,17 @@ export function validateReceiptOcr(ocr: ReceiptOcrResult, ctx: ReceiptValidation
   }
 
   return { ok: true, flagReasons };
+}
+
+const SERIES_AGUSTIN_KEYWORD = "agustin";
+
+/**
+ * The campaign's core eligibility rule: at least one OCR-read line item must
+ * be "Series Agustin". Checked against Gemini's `items` array only — never
+ * against anything the customer could type — so this can't be spoofed by
+ * claiming a product name manually.
+ */
+export function hasSeriesAgustinItem(items: ReceiptOcrResult["items"]): boolean {
+  if (!items) return false;
+  return items.some((item) => (item.name ?? "").toLowerCase().includes(SERIES_AGUSTIN_KEYWORD));
 }

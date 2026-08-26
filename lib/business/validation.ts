@@ -28,20 +28,6 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password wajib diisi"),
 });
 
-export const newClaimSchema = z.object({
-  branchId: z.string().uuid("Pilih cabang yang valid"),
-  amount: z.coerce.number().positive("Nominal harus lebih dari 0"),
-  items: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1),
-        qty: z.coerce.number().int().positive(),
-        price: z.coerce.number().nonnegative(),
-      })
-    )
-    .min(1, "Minimal 1 item"),
-});
-
 export const contentSubmissionSchema = z.object({
   claimId: z.string().uuid(),
   type: z.enum(["story", "feed_photo", "feed_reels"]),

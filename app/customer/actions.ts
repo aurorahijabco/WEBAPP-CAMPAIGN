@@ -3,64 +3,99 @@
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/session";
-import { newClaimSchema, contentSubmissionSchema } from "@/lib/business/validation";
+import { contentSubmissionSchema } from "@/lib/business/validation";
 import { extractReceiptData } from "@/lib/business/ocr";
-import { validateReceiptOcr } from "@/lib/business/receiptValidation";
-import { redirect } from "next/navigation";
+import { validateReceiptOcr, hasSeriesAgustinItem } from "@/lib/business/receiptValidation";
 import { revalidatePath } from "next/cache";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
 const PG_UNIQUE_VIOLATION = "23505";
 const DUPLICATE_RECEIPT_MESSAGE = "Struk ini sudah pernah digunakan untuk klaim sebelumnya.";
+const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+
+export type ClaimReceiptItem = { name: string; qty: number; price: number };
+
+export type ClaimReceiptState =
+  | { status: "valid"; claimId: string; branchName: string; items: ClaimReceiptItem[]; total: number }
+  | { status: "invalid"; reason: string }
+  | { status: "error"; error: string };
+
+/** Lowercases and strips everything but letters/digits, so punctuation/spacing
+ * differences between how a POS prints a branch name and how it's stored in
+ * `branches` (e.g. "CABANG DAGO" vs "Aurora Hijab Dago, Bandung") don't
+ * prevent a match. */
+function normalizeForMatch(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** "Aurora Hijab Dago, Bandung" -> "Dago" — the distinctive area name a
+ * receipt is far more likely to print than the full formal branch name. */
+function branchAreaFromName(name: string): string {
+  const withoutBrand = name.replace(/^aurora hijab\s*/i, "");
+  return withoutBrand.split(",")[0]?.trim() ?? withoutBrand;
+}
 
 /**
- * Creates a bill (receipt) + claim in one flow. The receipt photo is
- * uploaded to the private `receipts` bucket under `{user_id}/{random}.{ext}`
- * via the service-role client — storage RLS no longer applies (there is no
- * Supabase-issued session to authenticate as the owner), so ownership is
- * enforced here by the `user.id` we just validated via our own session.
- *
- * The photo is also sent to Gemini Vision for OCR (`lib/business/ocr.ts`).
- * The extracted total is what gets stored as the bill's `amount` — the
- * customer-typed `amount` field is never trusted for that; it's only used
- * to flag a large mismatch for admin review. Gemini's own `is_receipt`
- * verdict is likewise never trusted alone — `validateReceiptOcr` re-checks
- * completeness, campaign period, minimum amount, and merchant deterministically
- * in plain code before anything is persisted.
+ * Resolves the branch a receipt was purchased at from whatever merchant text
+ * Gemini read off it. Tried in order of specificity: the branch's own short
+ * `code` (e.g. "DAGO"), its area name (e.g. "Dago"), then its full formal
+ * name — each compared with punctuation/spacing normalized out, since a
+ * receipt header rarely matches the DB's full "Aurora Hijab X, City" string
+ * verbatim.
  */
-export async function createClaim(_prev: ActionState, formData: FormData): Promise<ActionState> {
+function resolveBranchFromMerchant<T extends { id: string; name: string; code: string }>(
+  merchantName: string | null,
+  branches: T[]
+): T | null {
+  if (!merchantName) return null;
+  const merchant = normalizeForMatch(merchantName);
+  if (!merchant) return null;
+
+  for (const b of branches) {
+    const code = normalizeForMatch(b.code);
+    if (code && merchant.includes(code)) return b;
+  }
+  for (const b of branches) {
+    const area = normalizeForMatch(branchAreaFromName(b.name));
+    if (area && merchant.includes(area)) return b;
+  }
+  for (const b of branches) {
+    const full = normalizeForMatch(b.name);
+    if (full && (merchant.includes(full) || full.includes(merchant))) return b;
+  }
+  return null;
+}
+
+/**
+ * The entire "Claim" flow in one call: OCR the uploaded struk, validate it
+ * deterministically, resolve which branch it belongs to, and — only if
+ * everything checks out — create the bill + claim rows. There is no
+ * separate "confirm"/submit step and no branch/amount/item form fields
+ * anymore: every piece of data that ends up in the database is either the
+ * customer's own session (`user.id`) or something Gemini read off the photo
+ * and this function re-verified in plain code. Nothing is trusted from the
+ * client beyond the raw image bytes.
+ *
+ * Called directly from the client (not via useActionState/<form action>),
+ * so it never redirects — the caller decides when to navigate to
+ * `/customer/claims/{claimId}` once it gets a "valid" result back. Nothing
+ * is persisted for an "invalid" or "error" result, so a user retrying with
+ * a different photo can never end up with duplicate/orphaned claim rows.
+ */
+export async function submitClaimReceipt(formData: FormData): Promise<ClaimReceiptState> {
   const user = await getCurrentUser();
-  if (!user) return { error: "Sesi berakhir, silakan login ulang." };
+  if (!user) return { status: "error", error: "Sesi berakhir, silakan login ulang." };
   const supabase = createAdminClient();
 
-  const itemNames = formData.getAll("itemName");
-  const itemQtys = formData.getAll("itemQty");
-  const itemPrices = formData.getAll("itemPrice");
-  const items = itemNames.map((name, i) => ({
-    name: String(name),
-    qty: Number(itemQtys[i] ?? 1),
-    price: Number(itemPrices[i] ?? 0),
-  }));
-
-  const parsed = newClaimSchema.safeParse({
-    branchId: formData.get("branchId"),
-    amount: formData.get("amount"),
-    items,
-  });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Data klaim tidak valid" };
-  }
-
   const photo = formData.get("photo") as File | null;
-  if (!photo || photo.size === 0) return { error: "Foto struk wajib diunggah" };
-  if (photo.size > 5 * 1024 * 1024) return { error: "Ukuran foto maksimal 5MB" };
+  if (!photo || photo.size === 0) return { status: "error", error: "Foto struk wajib diunggah." };
+  if (photo.size > 5 * 1024 * 1024) return { status: "error", error: "Ukuran foto maksimal 5MB." };
   // Restricted to the image formats Gemini Vision reliably accepts, rather
   // than a blanket "image/*" — an unsupported format (gif, svg, ...) would
   // otherwise reach the OCR call and fail unpredictably.
-  const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
   if (!SUPPORTED_IMAGE_TYPES.has(photo.type)) {
-    return { error: "Format file harus JPG, PNG, atau WEBP." };
+    return { status: "error", error: "Format file harus JPG, PNG, atau WEBP." };
   }
 
   const photoBuffer = Buffer.from(await photo.arrayBuffer());
@@ -69,31 +104,55 @@ export async function createClaim(_prev: ActionState, formData: FormData): Promi
   // Hard anti-duplicate check #1: the exact same photo bytes can never back
   // a second claim. Checked before spending an OCR call.
   const { data: existingByHash } = await supabase.from("bills").select("id").eq("photo_hash", photoHash).maybeSingle();
-  if (existingByHash) return { error: DUPLICATE_RECEIPT_MESSAGE };
+  if (existingByHash) return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
 
-  const [{ data: branch }, { data: periodSetting }, { data: minAmountSetting }] = await Promise.all([
-    supabase.from("branches").select("name").eq("id", parsed.data.branchId).single(),
+  const [{ data: branches }, { data: periodSetting }, { data: minAmountSetting }, { data: profile }] = await Promise.all([
+    supabase.from("branches").select("id, name, code").eq("active", true),
     supabase.from("campaign_settings").select("value").eq("key", "redemption_period").maybeSingle(),
     supabase.from("campaign_settings").select("value").eq("key", "min_claim_amount").maybeSingle(),
+    supabase.from("profiles").select("branch_id").eq("id", user.id).single(),
   ]);
-  if (!branch) return { error: "Cabang tidak ditemukan." };
+
+  const ocrOutcome = await extractReceiptData(photoBuffer, photo.type);
+  if (!ocrOutcome.ok) return { status: "error", error: ocrOutcome.error };
+  const ocr = ocrOutcome.data;
+
+  // Branch is resolved from what the OCR read off the receipt — never from
+  // a form field, since there isn't one anymore. If the merchant text on
+  // the struk doesn't clearly match a known branch, fall back to the
+  // customer's own registered branch (set at signup, e.g. via a branch QR
+  // code) — still not manual input at claim time. Only if neither resolves
+  // do we have no legal branch_id to store (bills/claims require one).
+  const branchList = branches ?? [];
+  const resolvedBranch =
+    resolveBranchFromMerchant(ocr.merchant_name, branchList) ?? branchList.find((b) => b.id === profile?.branch_id) ?? null;
+  if (!resolvedBranch) {
+    return {
+      status: "invalid",
+      reason: "Cabang pembelian tidak dapat dikenali dari struk. Pastikan nama cabang terlihat jelas pada foto, lalu upload ulang.",
+    };
+  }
 
   const period = periodSetting?.value as { start: string; end: string } | undefined;
   const redemptionPeriodEnd = period?.end ? new Date(period.end) : null;
   const minClaimAmount = typeof minAmountSetting?.value === "number" ? minAmountSetting.value : 0;
 
-  const ocrOutcome = await extractReceiptData(photoBuffer, photo.type);
-  if (!ocrOutcome.ok) return { error: ocrOutcome.error };
-
-  const validation = validateReceiptOcr(ocrOutcome.data, {
+  const validation = validateReceiptOcr(ocr, {
     redemptionPeriodEnd,
     minClaimAmount,
-    branchName: branch.name as string,
-    clientAmount: parsed.data.amount,
+    branchName: resolvedBranch.name,
   });
-  if (!validation.ok) return { error: validation.error ?? "Struk tidak valid, silakan upload ulang." };
+  if (!validation.ok) return { status: "invalid", reason: validation.error ?? "Struk tidak valid, silakan upload ulang." };
 
-  const ocr = ocrOutcome.data;
+  // The campaign's core eligibility rule — from OCR items only, never
+  // anything the customer could type.
+  if (!hasSeriesAgustinItem(ocr.items)) {
+    return {
+      status: "invalid",
+      reason: 'Struk tidak menunjukkan pembelian "Series Agustin". Pastikan item ini tercantum jelas pada struk, lalu upload ulang.',
+    };
+  }
+
   const verifiedAmount = ocr.total as number; // non-null, enforced by validateReceiptOcr
 
   // Hard anti-duplicate check #2: same physical receipt (by its printed
@@ -105,11 +164,17 @@ export async function createClaim(_prev: ActionState, formData: FormData): Promi
     const { data: existingByReceiptNumber } = await supabase
       .from("bills")
       .select("id")
-      .eq("branch_id", parsed.data.branchId)
+      .eq("branch_id", resolvedBranch.id)
       .eq("receipt_number", ocr.receipt_number)
       .maybeSingle();
-    if (existingByReceiptNumber) return { error: DUPLICATE_RECEIPT_MESSAGE };
+    if (existingByReceiptNumber) return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
   }
+
+  const items: ClaimReceiptItem[] = (ocr.items ?? []).map((it) => ({
+    name: it.name ?? "-",
+    qty: it.qty ?? 1,
+    price: it.price ?? 0,
+  }));
 
   const ext = photo.name.split(".").pop() || "jpg";
   const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
@@ -118,15 +183,15 @@ export async function createClaim(_prev: ActionState, formData: FormData): Promi
     contentType: photo.type,
     upsert: false,
   });
-  if (uploadError) return { error: "Gagal mengunggah foto struk: " + uploadError.message };
+  if (uploadError) return { status: "error", error: "Gagal mengunggah foto struk: " + uploadError.message };
 
   const { data: bill, error: billError } = await supabase
     .from("bills")
     .insert({
       customer_id: user.id,
-      branch_id: parsed.data.branchId,
+      branch_id: resolvedBranch.id,
       amount: verifiedAmount,
-      items: parsed.data.items,
+      items,
       photo_path: path,
       photo_hash: photoHash,
       receipt_number: ocr.receipt_number,
@@ -137,16 +202,16 @@ export async function createClaim(_prev: ActionState, formData: FormData): Promi
     .select("id")
     .single();
   if (billError) {
-    if (billError.code === PG_UNIQUE_VIOLATION) return { error: DUPLICATE_RECEIPT_MESSAGE };
-    return { error: "Gagal menyimpan struk: " + billError.message };
+    if (billError.code === PG_UNIQUE_VIOLATION) return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
+    return { status: "error", error: "Gagal menyimpan struk: " + billError.message };
   }
-  if (!bill) return { error: "Gagal menyimpan struk." };
+  if (!bill) return { status: "error", error: "Gagal menyimpan struk." };
 
   const { data: claim, error: claimError } = await supabase
     .from("claims")
     .insert({
       customer_id: user.id,
-      branch_id: parsed.data.branchId,
+      branch_id: resolvedBranch.id,
       bill_id: bill.id,
       purchase_status: "HOLD",
       flagged: validation.flagReasons.length > 0,
@@ -154,10 +219,10 @@ export async function createClaim(_prev: ActionState, formData: FormData): Promi
     })
     .select("id")
     .single();
-  if (claimError || !claim) return { error: "Gagal membuat klaim: " + claimError?.message };
+  if (claimError || !claim) return { status: "error", error: "Gagal membuat klaim: " + (claimError?.message ?? "") };
 
   revalidatePath("/customer/dashboard");
-  redirect(`/customer/claims/${claim.id}`);
+  return { status: "valid", claimId: claim.id, branchName: resolvedBranch.name, items, total: verifiedAmount };
 }
 
 export async function submitContent(_prev: ActionState, formData: FormData): Promise<ActionState> {
