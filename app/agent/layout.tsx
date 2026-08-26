@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/session";
+import { writeAuditLog } from "@/lib/business/auditLog";
 import { redirect } from "next/navigation";
 import { SidebarNav } from "@/components/nav/SidebarNav";
 import { LogoutButton } from "@/components/nav/LogoutButton";
@@ -11,7 +12,18 @@ const NAV = [
 
 export default async function AgentLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "agent") redirect("/agent-login");
+  if (!user || user.role !== "agent") {
+    if (user) {
+      await writeAuditLog({
+        action: "unauthorized_access",
+        status: "failed",
+        actor: { id: user.id, username: user.username, role: user.role },
+        entityType: "route",
+        metadata: { attemptedRoute: "/agent" },
+      });
+    }
+    redirect("/agent-login");
+  }
 
   const supabase = createAdminClient();
   const { data: profile } = await supabase

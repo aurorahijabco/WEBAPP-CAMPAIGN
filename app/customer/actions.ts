@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { contentSubmissionSchema } from "@/lib/business/validation";
 import { extractReceiptData } from "@/lib/business/ocr";
 import { validateReceiptOcr, hasSeriesAgustinItem } from "@/lib/business/receiptValidation";
+import { writeAuditLog } from "@/lib/business/auditLog";
 import { revalidatePath } from "next/cache";
 
 export type ActionState = { error?: string; success?: string } | undefined;
@@ -87,6 +88,7 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
   const user = await getCurrentUser();
   if (!user) return { status: "error", error: "Sesi berakhir, silakan login ulang." };
   const supabase = createAdminClient();
+  const actor = { id: user.id, username: user.username, role: user.role };
 
   const photo = formData.get("photo") as File | null;
   if (!photo || photo.size === 0) return { status: "error", error: "Foto struk wajib diunggah." };
@@ -101,10 +103,29 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
   const photoBuffer = Buffer.from(await photo.arrayBuffer());
   const photoHash = createHash("sha256").update(photoBuffer).digest("hex");
 
+  await writeAuditLog({
+    action: "receipt_uploaded",
+    status: "success",
+    actor,
+    entityType: "bill",
+    branchId: user.branchId,
+    metadata: { photoHash, sizeBytes: photo.size, mimeType: photo.type },
+  });
+
   // Hard anti-duplicate check #1: the exact same photo bytes can never back
   // a second claim. Checked before spending an OCR call.
   const { data: existingByHash } = await supabase.from("bills").select("id").eq("photo_hash", photoHash).maybeSingle();
-  if (existingByHash) return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
+  if (existingByHash) {
+    await writeAuditLog({
+      action: "claim_invalid",
+      status: "failed",
+      actor,
+      entityType: "bill",
+      branchId: user.branchId,
+      metadata: { reason: "duplicate_photo_hash", photoHash },
+    });
+    return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
+  }
 
   const [{ data: branches }, { data: periodSetting }, { data: minAmountSetting }, { data: profile }] = await Promise.all([
     supabase.from("branches").select("id, name, code").eq("active", true),
@@ -114,8 +135,26 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
   ]);
 
   const ocrOutcome = await extractReceiptData(photoBuffer, photo.type);
-  if (!ocrOutcome.ok) return { status: "error", error: ocrOutcome.error };
+  if (!ocrOutcome.ok) {
+    await writeAuditLog({
+      action: "ocr_failed",
+      status: "failed",
+      actor,
+      entityType: "bill",
+      branchId: user.branchId,
+      metadata: { photoHash, error: ocrOutcome.error },
+    });
+    return { status: "error", error: ocrOutcome.error };
+  }
   const ocr = ocrOutcome.data;
+  await writeAuditLog({
+    action: "ocr_success",
+    status: "success",
+    actor,
+    entityType: "bill",
+    branchId: user.branchId,
+    metadata: { photoHash, merchantName: ocr.merchant_name, quality: ocr.quality, total: ocr.total },
+  });
 
   // Branch is resolved from what the OCR read off the receipt — never from
   // a form field, since there isn't one anymore. If the merchant text on
@@ -127,6 +166,13 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
   const resolvedBranch =
     resolveBranchFromMerchant(ocr.merchant_name, branchList) ?? branchList.find((b) => b.id === profile?.branch_id) ?? null;
   if (!resolvedBranch) {
+    await writeAuditLog({
+      action: "claim_invalid",
+      status: "failed",
+      actor,
+      entityType: "bill",
+      metadata: { reason: "branch_not_resolved", merchantName: ocr.merchant_name },
+    });
     return {
       status: "invalid",
       reason: "Cabang pembelian tidak dapat dikenali dari struk. Pastikan nama cabang terlihat jelas pada foto, lalu upload ulang.",
@@ -142,11 +188,31 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
     minClaimAmount,
     branchName: resolvedBranch.name,
   });
-  if (!validation.ok) return { status: "invalid", reason: validation.error ?? "Struk tidak valid, silakan upload ulang." };
+  if (!validation.ok) {
+    await writeAuditLog({
+      action: "claim_invalid",
+      status: "failed",
+      actor,
+      entityType: "bill",
+      branchId: resolvedBranch.id,
+      branchName: resolvedBranch.name,
+      metadata: { reason: validation.error },
+    });
+    return { status: "invalid", reason: validation.error ?? "Struk tidak valid, silakan upload ulang." };
+  }
 
   // The campaign's core eligibility rule — from OCR items only, never
   // anything the customer could type.
   if (!hasSeriesAgustinItem(ocr.items)) {
+    await writeAuditLog({
+      action: "claim_invalid",
+      status: "failed",
+      actor,
+      entityType: "bill",
+      branchId: resolvedBranch.id,
+      branchName: resolvedBranch.name,
+      metadata: { reason: "series_agustin_not_found" },
+    });
     return {
       status: "invalid",
       reason: 'Struk tidak menunjukkan pembelian "Series Agustin". Pastikan item ini tercantum jelas pada struk, lalu upload ulang.',
@@ -167,7 +233,18 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
       .eq("branch_id", resolvedBranch.id)
       .eq("receipt_number", ocr.receipt_number)
       .maybeSingle();
-    if (existingByReceiptNumber) return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
+    if (existingByReceiptNumber) {
+      await writeAuditLog({
+        action: "claim_invalid",
+        status: "failed",
+        actor,
+        entityType: "bill",
+        branchId: resolvedBranch.id,
+        branchName: resolvedBranch.name,
+        metadata: { reason: "duplicate_receipt_number", receiptNumber: ocr.receipt_number },
+      });
+      return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
+    }
   }
 
   const items: ClaimReceiptItem[] = (ocr.items ?? []).map((it) => ({
@@ -183,7 +260,18 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
     contentType: photo.type,
     upsert: false,
   });
-  if (uploadError) return { status: "error", error: "Gagal mengunggah foto struk: " + uploadError.message };
+  if (uploadError) {
+    await writeAuditLog({
+      action: "claim_created",
+      status: "failed",
+      actor,
+      entityType: "bill",
+      branchId: resolvedBranch.id,
+      branchName: resolvedBranch.name,
+      metadata: { reason: "storage_upload_failed", error: uploadError.message },
+    });
+    return { status: "error", error: "Gagal mengunggah foto struk: " + uploadError.message };
+  }
 
   const { data: bill, error: billError } = await supabase
     .from("bills")
@@ -202,7 +290,27 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
     .select("id")
     .single();
   if (billError) {
-    if (billError.code === PG_UNIQUE_VIOLATION) return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
+    if (billError.code === PG_UNIQUE_VIOLATION) {
+      await writeAuditLog({
+        action: "claim_invalid",
+        status: "failed",
+        actor,
+        entityType: "bill",
+        branchId: resolvedBranch.id,
+        branchName: resolvedBranch.name,
+        metadata: { reason: "duplicate_receipt_unique_constraint" },
+      });
+      return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
+    }
+    await writeAuditLog({
+      action: "claim_created",
+      status: "failed",
+      actor,
+      entityType: "bill",
+      branchId: resolvedBranch.id,
+      branchName: resolvedBranch.name,
+      metadata: { reason: billError.message },
+    });
     return { status: "error", error: "Gagal menyimpan struk: " + billError.message };
   }
   if (!bill) return { status: "error", error: "Gagal menyimpan struk." };
@@ -219,7 +327,39 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
     })
     .select("id")
     .single();
-  if (claimError || !claim) return { status: "error", error: "Gagal membuat klaim: " + (claimError?.message ?? "") };
+  if (claimError || !claim) {
+    await writeAuditLog({
+      action: "claim_created",
+      status: "failed",
+      actor,
+      entityType: "bill",
+      entityId: bill.id,
+      branchId: resolvedBranch.id,
+      branchName: resolvedBranch.name,
+      metadata: { reason: claimError?.message ?? "unknown error" },
+    });
+    return { status: "error", error: "Gagal membuat klaim: " + (claimError?.message ?? "") };
+  }
+
+  await writeAuditLog({
+    action: "claim_valid",
+    status: "success",
+    actor,
+    entityType: "claim",
+    entityId: claim.id,
+    branchId: resolvedBranch.id,
+    branchName: resolvedBranch.name,
+    metadata: { billId: bill.id, total: verifiedAmount, flagged: validation.flagReasons.length > 0 },
+  });
+  await writeAuditLog({
+    action: "claim_created",
+    status: "success",
+    actor,
+    entityType: "claim",
+    entityId: claim.id,
+    branchId: resolvedBranch.id,
+    branchName: resolvedBranch.name,
+  });
 
   revalidatePath("/customer/dashboard");
   return { status: "valid", claimId: claim.id, branchName: resolvedBranch.name, items, total: verifiedAmount };
@@ -248,6 +388,14 @@ export async function submitContent(_prev: ActionState, formData: FormData): Pro
     .eq("id", parsed.data.claimId)
     .single();
   if (!claim || claim.customer_id !== user.id) {
+    await writeAuditLog({
+      action: "unauthorized_access",
+      status: "failed",
+      actor: { id: user.id, username: user.username, role: user.role },
+      entityType: "claim",
+      entityId: String(parsed.data.claimId),
+      metadata: { attemptedAction: "content_submitted" },
+    });
     return { error: "Klaim tidak ditemukan" };
   }
 
@@ -258,6 +406,16 @@ export async function submitContent(_prev: ActionState, formData: FormData): Pro
     url: parsed.data.url,
     status: "PENDING",
   });
+
+  await writeAuditLog({
+    action: "content_submitted",
+    status: error ? "failed" : "success",
+    actor: { id: user.id, username: user.username, role: user.role },
+    entityType: "content_submission",
+    entityId: parsed.data.claimId,
+    metadata: { type: parsed.data.type, platform: parsed.data.platform, error: error?.message },
+  });
+
   if (error) return { error: "Gagal mengirim konten: " + error.message };
 
   revalidatePath(`/customer/claims/${parsed.data.claimId}`);

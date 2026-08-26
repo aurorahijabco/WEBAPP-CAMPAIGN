@@ -5,6 +5,7 @@ import { registerSchema, loginSchema } from "@/lib/business/validation";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
 import { verifyBranchToken } from "@/lib/business/branchToken";
+import { writeAuditLog } from "@/lib/business/auditLog";
 import { redirect } from "next/navigation";
 import type { AppRole } from "@/types/domain";
 
@@ -91,10 +92,26 @@ export async function registerCustomer(_prev: ActionState, formData: FormData): 
     .single();
 
   if (insertError || !profile) {
+    await writeAuditLog({
+      action: "register",
+      status: "failed",
+      actor: { username },
+      entityType: "profile",
+      branchId,
+      metadata: { reason: insertError?.message ?? "unknown error" },
+    });
     return { error: "Gagal membuat akun: " + (insertError?.message ?? "unknown error") };
   }
 
   await createSession(profile.id);
+  await writeAuditLog({
+    action: "register",
+    status: "success",
+    actor: { id: profile.id, username, role: "customer" },
+    entityType: "profile",
+    entityId: profile.id,
+    branchId,
+  });
   redirect("/customer/dashboard");
 }
 
@@ -113,20 +130,54 @@ async function loginAs(
   const supabase = createAdminClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role, password_hash")
+    .select("id, role, branch_id, password_hash")
     .eq("username", username)
     .maybeSingle();
 
-  if (!profile) return { error: "Username atau password salah" };
+  if (!profile) {
+    await writeAuditLog({
+      action: "login_failed",
+      status: "failed",
+      actor: { username, role: expectedRole },
+      entityType: "session",
+      metadata: { reason: "user_not_found" },
+    });
+    return { error: "Username atau password salah" };
+  }
 
   const valid = await verifyPassword(password, profile.password_hash);
-  if (!valid) return { error: "Username atau password salah" };
+  if (!valid) {
+    await writeAuditLog({
+      action: "login_failed",
+      status: "failed",
+      actor: { id: profile.id, username, role: profile.role },
+      entityType: "session",
+      branchId: profile.branch_id,
+      metadata: { reason: "wrong_password" },
+    });
+    return { error: "Username atau password salah" };
+  }
 
   if (profile.role !== expectedRole) {
+    await writeAuditLog({
+      action: "login_failed",
+      status: "failed",
+      actor: { id: profile.id, username, role: profile.role },
+      entityType: "session",
+      branchId: profile.branch_id,
+      metadata: { reason: "role_mismatch", expectedRole },
+    });
     return { error: `Akun ini bukan akun ${expectedRole}. Gunakan halaman login yang sesuai.` };
   }
 
   await createSession(profile.id);
+  await writeAuditLog({
+    action: "login",
+    status: "success",
+    actor: { id: profile.id, username, role: profile.role },
+    entityType: "session",
+    branchId: profile.branch_id,
+  });
   redirect(fallbackHome);
 }
 

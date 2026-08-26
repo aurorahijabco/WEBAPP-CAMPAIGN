@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createBranchSchema, updateBranchSchema, deleteBranchSchema } from "@/lib/business/validation";
+import { writeAuditLog } from "@/lib/business/auditLog";
 import { revalidatePath } from "next/cache";
 
 export type ActionState = { error?: string; success?: string } | undefined;
@@ -13,14 +14,27 @@ async function assertAdmin() {
   return { supabase, user, ok: user?.role === "admin" };
 }
 
+async function logUnauthorized(user: Awaited<ReturnType<typeof getCurrentUser>>, attemptedAction: string) {
+  await writeAuditLog({
+    action: "unauthorized_access",
+    status: "failed",
+    actor: user ? { id: user.id, username: user.username, role: user.role } : null,
+    entityType: "route",
+    metadata: { attemptedAction },
+  });
+}
+
 /** Postgres unique_violation / foreign_key_violation codes, for friendly messages
  * instead of leaking raw SQL errors to the UI. */
 const PG_UNIQUE_VIOLATION = "23505";
 const PG_FOREIGN_KEY_VIOLATION = "23503";
 
 export async function createBranch(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { supabase, ok } = await assertAdmin();
-  if (!ok) return { error: "Tidak diizinkan" };
+  const { supabase, user, ok } = await assertAdmin();
+  if (!ok) {
+    await logUnauthorized(user, "createBranch");
+    return { error: "Tidak diizinkan" };
+  }
 
   const parsed = createBranchSchema.safeParse({
     name: formData.get("name"),
@@ -30,10 +44,24 @@ export async function createBranch(_prev: ActionState, formData: FormData): Prom
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
   const { name, code, address } = parsed.data;
 
-  const { error } = await supabase.from("branches").insert({
-    name,
-    code,
-    address: address || null,
+  const { data: created, error } = await supabase
+    .from("branches")
+    .insert({
+      name,
+      code,
+      address: address || null,
+    })
+    .select("id")
+    .single();
+
+  await writeAuditLog({
+    action: "branch_created",
+    status: error ? "failed" : "success",
+    actor: { id: user!.id, username: user!.username, role: user!.role },
+    entityType: "branch",
+    entityId: created?.id,
+    branchName: name,
+    metadata: { code, error: error?.message },
   });
 
   if (error) {
@@ -48,8 +76,11 @@ export async function createBranch(_prev: ActionState, formData: FormData): Prom
 }
 
 export async function updateBranch(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { supabase, ok } = await assertAdmin();
-  if (!ok) return { error: "Tidak diizinkan" };
+  const { supabase, user, ok } = await assertAdmin();
+  if (!ok) {
+    await logUnauthorized(user, "updateBranch");
+    return { error: "Tidak diizinkan" };
+  }
 
   const parsed = updateBranchSchema.safeParse({
     branchId: formData.get("branchId"),
@@ -65,6 +96,16 @@ export async function updateBranch(_prev: ActionState, formData: FormData): Prom
     .update({ name, code, address: address || null })
     .eq("id", branchId);
 
+  await writeAuditLog({
+    action: "branch_updated",
+    status: error ? "failed" : "success",
+    actor: { id: user!.id, username: user!.username, role: user!.role },
+    entityType: "branch",
+    entityId: branchId,
+    branchName: name,
+    metadata: { code, error: error?.message },
+  });
+
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
       return { error: "Kode cabang sudah digunakan cabang lain." };
@@ -77,8 +118,11 @@ export async function updateBranch(_prev: ActionState, formData: FormData): Prom
 }
 
 export async function deleteBranch(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { supabase, ok } = await assertAdmin();
-  if (!ok) return { error: "Tidak diizinkan" };
+  const { supabase, user, ok } = await assertAdmin();
+  if (!ok) {
+    await logUnauthorized(user, "deleteBranch");
+    return { error: "Tidak diizinkan" };
+  }
 
   const parsed = deleteBranchSchema.safeParse({ branchId: formData.get("branchId") });
   if (!parsed.success) return { error: "Data tidak valid" };
@@ -120,6 +164,16 @@ export async function deleteBranch(_prev: ActionState, formData: FormData): Prom
   }
 
   const { error } = await supabase.from("branches").delete().eq("id", branchId);
+
+  await writeAuditLog({
+    action: "branch_deleted",
+    status: error ? "failed" : "success",
+    actor: { id: user!.id, username: user!.username, role: user!.role },
+    entityType: "branch",
+    entityId: branchId,
+    metadata: { error: error?.message },
+  });
+
   if (error) {
     // Defensive fallback in case a dependent row was created in the gap
     // between the checks above and this delete (race condition).

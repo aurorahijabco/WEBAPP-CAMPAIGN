@@ -92,6 +92,21 @@ export interface Voucher {
   redeemed_by: string | null;
 }
 
+export interface AuditLog {
+  id: string;
+  created_at: string;
+  user_id: string | null;
+  username: string | null;
+  role: string | null;
+  action: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
+  status: "success" | "failed";
+  metadata: Record<string, unknown>;
+}
+
 export interface Notification {
   id: string;
   user_id: string;
