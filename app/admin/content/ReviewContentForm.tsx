@@ -24,7 +24,16 @@ export function ReviewContentForm({ submissionId }: { submissionId: string }) {
           <option key={r} value={r}>{r}</option>
         ))}
       </Select>
-      <Textarea name="reason" defaultValue={reasonPreset} placeholder="Alasan (wajib untuk HOLD/REJECTED)" className="min-h-[60px] text-xs" />
+      {/* Keyed on reasonPreset so picking a preset actually re-mounts (and
+          re-populates) this uncontrolled textarea — defaultValue alone does
+          not update an already-mounted input. */}
+      <Textarea
+        key={reasonPreset}
+        name="reason"
+        defaultValue={reasonPreset}
+        placeholder="Alasan (wajib untuk HOLD/REJECTED)"
+        className="min-h-[60px] text-xs"
+      />
 
       {state?.error && <p className="text-xs font-semibold text-danger">{state.error}</p>}
 

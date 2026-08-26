@@ -16,6 +16,14 @@ const BUSY_LABEL: Record<string, string> = {
 
 const SUPPORTED_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 
+// Server-side OCR itself times out at 25s (see lib/business/ocr.ts), so the
+// action call normally settles well before this. This is a client-only
+// safety net for the case the server-side timeout can't cover — a dropped
+// connection or a hung serverless invocation — so the user is never stuck
+// staring at the spinner with no way out.
+const CLIENT_TIMEOUT_MS = 35_000;
+const TIMEOUT_MESSAGE = "Permintaan memakan waktu terlalu lama. Periksa koneksi internet kamu, lalu coba lagi.";
+
 /**
  * The entire "Claim" screen: a single upload control that immediately runs
  * Gemini OCR (via the `submitClaimReceipt` Server Action, called directly —
@@ -34,6 +42,11 @@ export function ClaimUploadFlow() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const busyRef = useRef(false);
   const timersRef = useRef<number[]>([]);
+  // Bumped on every new attempt (handleFile call or reset). A late-arriving
+  // result from an attempt the user has already backed out of (via the
+  // timeout's retry button, or a fresh upload) is stale and must never
+  // clobber whatever state is current by then.
+  const generationRef = useRef(0);
 
   function clearTimers() {
     for (const t of timersRef.current) window.clearTimeout(t);
@@ -43,6 +56,7 @@ export function ClaimUploadFlow() {
   async function handleFile(file: File) {
     if (busyRef.current) return;
     busyRef.current = true;
+    const generation = ++generationRef.current;
 
     clearTimers();
     setResult(null);
@@ -62,12 +76,23 @@ export function ClaimUploadFlow() {
     timersRef.current.push(window.setTimeout(() => setPhase("reading"), 350));
     timersRef.current.push(window.setTimeout(() => setPhase("processing"), 2200));
 
+    const timeout = new Promise<ClaimReceiptState>((resolve) => {
+      timersRef.current.push(
+        window.setTimeout(() => resolve({ status: "error", error: TIMEOUT_MESSAGE }), CLIENT_TIMEOUT_MS)
+      );
+    });
+
     let outcome: ClaimReceiptState;
     try {
-      outcome = await submitClaimReceipt(formData);
+      outcome = await Promise.race([submitClaimReceipt(formData), timeout]);
     } catch {
       outcome = { status: "error", error: "Terjadi kesalahan saat memverifikasi struk. Silakan coba lagi." };
     }
+
+    // The real request may still be in flight after the client timeout won
+    // the race, or the user may have already reset/retried — either way,
+    // only the attempt that's still current is allowed to update the UI.
+    if (generationRef.current !== generation) return;
 
     clearTimers();
     busyRef.current = false;
@@ -76,6 +101,7 @@ export function ClaimUploadFlow() {
   }
 
   function reset() {
+    generationRef.current++;
     clearTimers();
     busyRef.current = false;
     setResult(null);

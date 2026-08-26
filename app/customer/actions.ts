@@ -399,6 +399,29 @@ export async function submitContent(_prev: ActionState, formData: FormData): Pro
     return { error: "Klaim tidak ditemukan" };
   }
 
+  // Anti-duplicate-submission guard: block a new submission for this tier
+  // while a previous one is still PENDING/HOLD (server-side — the UI hides
+  // the form in this state, but the action itself must not trust that,
+  // since it can be invoked directly). Only a REJECTED (or no) prior
+  // submission for this tier may be retried, per the "retry without
+  // repurchasing" rule.
+  const { data: existingForTier } = await supabase
+    .from("content_submissions")
+    .select("status")
+    .eq("claim_id", parsed.data.claimId)
+    .eq("type", parsed.data.type)
+    .order("submitted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingForTier && existingForTier.status !== "REJECTED") {
+    return {
+      error:
+        existingForTier.status === "APPROVED"
+          ? "Konten untuk tier ini sudah disetujui."
+          : "Konten untuk tier ini masih dalam review. Tunggu hasil review sebelum submit ulang.",
+    };
+  }
+
   const { error } = await supabase.from("content_submissions").insert({
     claim_id: parsed.data.claimId,
     type: parsed.data.type,
