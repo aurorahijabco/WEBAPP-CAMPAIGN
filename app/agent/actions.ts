@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { redeemSchema } from "@/lib/business/validation";
+import { writeAuditLog } from "@/lib/business/auditLog";
 import { revalidatePath } from "next/cache";
 
 export type ActionState =
@@ -83,8 +84,26 @@ export async function redeemVoucher(_prev: ActionState, formData: FormData): Pro
   });
 
   if (error) {
+    await writeAuditLog({
+      action: "voucher_redeem_failed",
+      status: "failed",
+      actor: { id: user.id, username: user.username, role: user.role },
+      entityType: "voucher",
+      branchId: user.branchId,
+      metadata: { code: parsed.data.code, reason: error.message },
+    });
     return { error: mapRedeemError(error.message) };
   }
+
+  await writeAuditLog({
+    action: "voucher_redeemed",
+    status: "success",
+    actor: { id: user.id, username: user.username, role: user.role },
+    entityType: "voucher",
+    entityId: data.id,
+    branchId: user.branchId,
+    metadata: { code: data.code, amount: data.redeemed_amount ?? data.value, productName: parsed.data.productName },
+  });
 
   revalidatePath("/agent/dashboard");
   return { success: "Voucher berhasil ditukarkan!", voucher: { code: data.code, value: data.redeemed_amount ?? data.value } };

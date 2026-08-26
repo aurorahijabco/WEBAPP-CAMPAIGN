@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { billReviewSchema, contentReviewSchema } from "@/lib/business/validation";
+import { writeAuditLog } from "@/lib/business/auditLog";
 import { revalidatePath } from "next/cache";
 
 export type ActionState = { error?: string; success?: string } | undefined;
@@ -13,9 +14,22 @@ async function assertAdmin() {
   return { supabase, user, ok: user?.role === "admin" };
 }
 
+async function logUnauthorized(user: Awaited<ReturnType<typeof getCurrentUser>>, attemptedAction: string) {
+  await writeAuditLog({
+    action: "unauthorized_access",
+    status: "failed",
+    actor: user ? { id: user.id, username: user.username, role: user.role } : null,
+    entityType: "route",
+    metadata: { attemptedAction },
+  });
+}
+
 export async function reviewBill(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { supabase, ok } = await assertAdmin();
-  if (!ok) return { error: "Tidak diizinkan" };
+  const { supabase, user, ok } = await assertAdmin();
+  if (!ok) {
+    await logUnauthorized(user, "reviewBill");
+    return { error: "Tidak diizinkan" };
+  }
 
   const parsed = billReviewSchema.safeParse({
     billId: formData.get("billId"),
@@ -33,6 +47,15 @@ export async function reviewBill(_prev: ActionState, formData: FormData): Promis
     })
     .eq("id", parsed.data.billId);
 
+  await writeAuditLog({
+    action: "bill_reviewed",
+    status: error ? "failed" : "success",
+    actor: { id: user!.id, username: user!.username, role: user!.role },
+    entityType: "bill",
+    entityId: String(parsed.data.billId),
+    metadata: { newStatus: parsed.data.status, note: parsed.data.note ?? null, error: error?.message },
+  });
+
   if (error) return { error: "Gagal memperbarui struk: " + error.message };
 
   revalidatePath("/admin/receipts");
@@ -42,7 +65,10 @@ export async function reviewBill(_prev: ActionState, formData: FormData): Promis
 
 export async function reviewContent(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { supabase, user, ok } = await assertAdmin();
-  if (!ok || !user) return { error: "Tidak diizinkan" };
+  if (!ok || !user) {
+    await logUnauthorized(user, "reviewContent");
+    return { error: "Tidak diizinkan" };
+  }
 
   const parsed = contentReviewSchema.safeParse({
     submissionId: formData.get("submissionId"),
@@ -65,6 +91,15 @@ export async function reviewContent(_prev: ActionState, formData: FormData): Pro
     })
     .eq("id", parsed.data.submissionId);
 
+  await writeAuditLog({
+    action: "content_reviewed",
+    status: error ? "failed" : "success",
+    actor: { id: user.id, username: user.username, role: user.role },
+    entityType: "content_submission",
+    entityId: String(parsed.data.submissionId),
+    metadata: { newStatus: parsed.data.status, reason: parsed.data.reason ?? null, error: error?.message },
+  });
+
   if (error) return { error: "Gagal memperbarui konten: " + error.message };
 
   revalidatePath("/admin/content");
@@ -72,9 +107,22 @@ export async function reviewContent(_prev: ActionState, formData: FormData): Pro
 }
 
 export async function toggleBranchActive(branchId: string, active: boolean) {
-  const { supabase, ok } = await assertAdmin();
-  if (!ok) return { error: "Tidak diizinkan" };
+  const { supabase, user, ok } = await assertAdmin();
+  if (!ok) {
+    await logUnauthorized(user, "toggleBranchActive");
+    return { error: "Tidak diizinkan" };
+  }
 
-  await supabase.from("branches").update({ active }).eq("id", branchId);
+  const { error } = await supabase.from("branches").update({ active }).eq("id", branchId);
+
+  await writeAuditLog({
+    action: "branch_status_changed",
+    status: error ? "failed" : "success",
+    actor: { id: user!.id, username: user!.username, role: user!.role },
+    entityType: "branch",
+    entityId: branchId,
+    metadata: { active, error: error?.message },
+  });
+
   revalidatePath("/admin/branches");
 }

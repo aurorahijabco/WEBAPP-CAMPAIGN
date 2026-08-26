@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
+import { writeAuditLog } from "@/lib/business/auditLog";
 import { redirect } from "next/navigation";
 import { SidebarNav } from "@/components/nav/SidebarNav";
 import { LogoutButton } from "@/components/nav/LogoutButton";
@@ -11,11 +12,26 @@ const NAV = [
   { href: "/admin/vouchers", label: "Voucher" },
   { href: "/admin/branches", label: "Cabang" },
   { href: "/admin/agents", label: "Agent" },
+  { href: "/admin/audit-log", label: "Audit Log" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "admin") redirect("/admin-login");
+  if (!user || user.role !== "admin") {
+    // Only log a genuine cross-role attempt (a logged-in customer/agent
+    // hitting /admin), not every anonymous/no-session visit — those are
+    // just visitors without a session yet, not an authorization failure.
+    if (user) {
+      await writeAuditLog({
+        action: "unauthorized_access",
+        status: "failed",
+        actor: { id: user.id, username: user.username, role: user.role },
+        entityType: "route",
+        metadata: { attemptedRoute: "/admin" },
+      });
+    }
+    redirect("/admin-login");
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-cream-50 dark:bg-plum-900 md:flex-row">
