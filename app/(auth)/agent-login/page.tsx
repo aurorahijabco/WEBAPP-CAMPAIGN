@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { loginAgent } from "../actions";
-import { Input, Label, FieldError } from "@/components/ui/Field";
+import { Input, Label, FieldError, PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { AuthShell } from "@/components/AuthShell";
 import { ExpiredNotice } from "@/components/ExpiredNotice";
@@ -24,7 +24,7 @@ export default function AgentLoginPage() {
         </div>
         <div>
           <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" required />
+          <PasswordInput id="password" name="password" required />
         </div>
 
         <FieldError message={state?.error} />

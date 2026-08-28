@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { registerCustomer } from "../actions";
-import { Input, Label } from "@/components/ui/Field";
+import { Input, Label, PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
 type ResolvedBranch = { code: string; name: string; token: string };
@@ -56,7 +56,7 @@ export function RegisterForm({
       </div>
       <div>
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" required minLength={8} />
+        <PasswordInput id="password" name="password" required minLength={8} />
       </div>
 
       <label className="flex items-start gap-3 rounded-2xl border-[1.5px] border-cream-200 p-3.5 text-sm dark:border-plum-500/40">
