@@ -74,7 +74,7 @@ const REWARD_TIERS = [
 
 const STEPS = [
   "Beli Series Agustin melalui Agen Aurora Hijab, lalu unggah struk pembelanjaanmu.",
-  "Buat konten orisinal (Story / Feed Photo / Feed Reels) dan wajib mention @aurorahijab.co.",
+  "Buat konten orisinal (Story / Feed Photo / Feed Reels) dan wajib follow dan mention @aurorahijab.co.",
   "Klaim voucher — nilainya mengikuti tier tertinggi yang terverifikasi (tidak kumulatif).",
   `Tukar voucher untuk ${REDEEM_PRODUCT_NAME} di cabang tempat kamu klaim, selama periode redemption.`,
 ];
@@ -214,8 +214,8 @@ export default async function LandingPage({
               <div className="space-y-0">
                 <KV k="Orisinalitas" v="Konten orisinal & dibuat sendiri. Retry tanpa beli ulang jika ditolak" />
                 <KV k="Produk" v="Series Agustin harus terlihat jelas & jadi bagian utama konten" />
-                <KV k="Wajib mention" v="@aurorahijab.co di TikTok dan/atau Instagram" />
-                <KV k="Feed Reels" v="Minimal 30 detik + konsep/effort jelas" />
+                <KV k="Wajib follow dan mention" v="@aurorahijab.co di TikTok dan/atau Instagram" />
+                <KV k="Feed Reels" v="Minimal 20 detik + konsep yang jelas" />
               </div>
             </Accordion>
             <Accordion title="Ketentuan Redemption">
@@ -242,9 +242,9 @@ export default async function LandingPage({
                 items={[
                   "Konten wajib orisinal, menampilkan Series Agustin dengan jelas, dan memiliki effort / kreativitas.",
                   <>
-                    <strong>Wajib mention @aurorahijab.co</strong> di TikTok dan/atau Instagram.
+                    <strong>Wajib follow dan mention @aurorahijab.co</strong> di TikTok dan/atau Instagram.
                   </>,
-                  "Feed Reels: minimal 30 detik, konsep jelas, bukan slideshow asal-asalan.",
+                  "Feed Reels: minimal 20 detik, konsep jelas, bukan slideshow asal-asalan.",
                   "Akun & konten harus dapat diakses untuk verifikasi.",
                   <>
                     Jika ditolak, dapat <strong>retry</strong> tanpa pembelian ulang.
