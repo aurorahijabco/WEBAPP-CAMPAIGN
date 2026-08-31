@@ -1,8 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { Badge } from "@/components/ui/Badge";
 import { formatIDR, formatDate } from "@/lib/utils";
+import { BranchQrCard } from "./BranchQrCard";
 import Link from "next/link";
 
 export default async function AgentDashboard() {
@@ -11,6 +13,22 @@ export default async function AgentDashboard() {
   const supabase = createAdminClient();
 
   const { data: profile } = await supabase.from("profiles").select("branch_id").eq("id", user.id).single();
+
+  // The agent's branch — resolved here, server-side, from the agent's own
+  // session-backed profile row. This is the ONLY branch this agent will
+  // ever see a QR for: there is no branch picker anywhere in this page,
+  // and the QR-generating component below only ever receives this one
+  // branch's code/name as props.
+  const { data: agentBranch } = profile?.branch_id
+    ? await supabase.from("branches").select("code, name").eq("id", profile.branch_id).maybeSingle()
+    : { data: null };
+
+  // The QR must encode the real, currently-served domain (works correctly
+  // across production/preview deployments) — never a client-supplied value.
+  const hdrs = await headers();
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "localhost:3000";
+  const proto = hdrs.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const origin = `${proto}://${host}`;
 
   // Only the columns the Agent Dashboard actually renders. Voucher `id`
   // (primary key) and `code` (redeem code) are intentionally NEVER selected
@@ -49,6 +67,12 @@ export default async function AgentDashboard() {
           <p className="mt-0.5 text-[11px] font-semibold text-plum-400 dark:text-cream-100/60">Kedaluwarsa</p>
         </div>
       </div>
+
+      {agentBranch ? (
+        <BranchQrCard branchName={agentBranch.name} branchCode={agentBranch.code} qrUrl={`${origin}/?branch=${agentBranch.code}`} />
+      ) : (
+        <div className="empty card">Akun agent ini belum terhubung ke cabang manapun. Hubungi Super Admin.</div>
+      )}
 
       <Link href="/agent/redeem" className="btn-gold w-full">
         <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-[17px] w-[17px]">
