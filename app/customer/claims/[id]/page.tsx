@@ -105,10 +105,13 @@ export default async function ClaimDetailPage({ params }: { params: Promise<{ id
             const tierSubs = submissions?.filter((s) => s.type === tier) ?? [];
             const latest = tierSubs[0];
             const approved = tierSubs.some((s) => s.status === "APPROVED");
-            // Block resubmission while the latest submission for this tier is
-            // still PENDING/HOLD — only a REJECTED (or no) prior submission
-            // may be retried. Mirrors the server-side guard in submitContent.
-            const canSubmit = claim.purchase_status !== "INVALID" && !approved && (!latest || latest.status === "REJECTED");
+            // Content can only be submitted once the struk/claim itself has
+            // been approved (VALID) by a Super Admin — not merely "not yet
+            // rejected". Mirrors the server-side guard in submitContent.
+            // Within that, block resubmission while the latest submission
+            // for this tier is still PENDING/HOLD — only a REJECTED (or no)
+            // prior submission may be retried.
+            const canSubmit = claim.purchase_status === "VALID" && !approved && (!latest || latest.status === "REJECTED");
 
             return (
               <div key={tier} className="card">

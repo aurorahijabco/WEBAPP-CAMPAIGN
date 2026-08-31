@@ -4,45 +4,41 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitClaimReceipt, type ClaimReceiptState } from "@/app/customer/actions";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Field";
 import { formatIDR } from "@/lib/utils";
 
-type Phase = "idle" | "uploading" | "reading" | "processing" | "valid" | "invalid" | "error";
+type Phase = "idle" | "uploading" | "valid" | "invalid" | "error";
 
 const BUSY_LABEL: Record<string, string> = {
-  uploading: "Mengunggah foto struk...",
-  reading: "Membaca struk (OCR)...",
-  processing: "Memverifikasi data...",
+  uploading: "Mengunggah struk...",
 };
 
 const SUPPORTED_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 
-// Server-side OCR itself times out at 25s (see lib/business/ocr.ts), so the
-// action call normally settles well before this. This is a client-only
-// safety net for the case the server-side timeout can't cover — a dropped
-// connection or a hung serverless invocation — so the user is never stuck
-// staring at the spinner with no way out.
+// Client-only safety net so the user is never stuck staring at the spinner
+// indefinitely on a dropped connection or a hung serverless invocation.
 const CLIENT_TIMEOUT_MS = 35_000;
 const TIMEOUT_MESSAGE = "Permintaan memakan waktu terlalu lama. Periksa koneksi internet kamu, lalu coba lagi.";
 
 /**
- * The entire "Claim" screen: a single upload control that immediately runs
- * Gemini OCR (via the `submitClaimReceipt` Server Action, called directly —
- * no form/submit button) and walks through
- * Upload -> Reading Receipt -> Processing -> Result -> Valid/Invalid.
- * There is nothing left for the user to type: branch, items, and total all
- * come back from the OCR-verified result. The claim row is only ever
- * created server-side once validation (including the "Series Agustin" item
- * check) passes, so an invalid/errored attempt never leaves a stray row —
- * retrying just re-runs this same flow with a new photo.
+ * The "Claim" screen: customer picks a receipt photo, enters the total
+ * amount shown on it, and submits (via the `submitClaimReceipt` Server
+ * Action, called directly — no automated verification). The claim always
+ * lands in HOLD ("menunggu review") for a Super Admin to manually check the
+ * photo and approve/reject — see app/admin/receipts. An invalid/errored
+ * attempt never leaves a stray row, so retrying with a different photo is
+ * always safe.
  */
 export function ClaimUploadFlow() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ClaimReceiptState | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [amount, setAmount] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const busyRef = useRef(false);
   const timersRef = useRef<number[]>([]);
-  // Bumped on every new attempt (handleFile call or reset). A late-arriving
+  // Bumped on every new attempt (submit call or reset). A late-arriving
   // result from an attempt the user has already backed out of (via the
   // timeout's retry button, or a fresh upload) is stale and must never
   // clobber whatever state is current by then.
@@ -53,28 +49,33 @@ export function ClaimUploadFlow() {
     timersRef.current = [];
   }
 
-  async function handleFile(file: File) {
-    if (busyRef.current) return;
+  function pickFile(f: File) {
+    setFile(f);
+    setPreviewUrl((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return URL.createObjectURL(f);
+    });
+  }
+
+  async function handleSubmit() {
+    if (busyRef.current || !file) return;
+    const amountValue = Number(amount);
+    if (!amount || !Number.isFinite(amountValue) || amountValue <= 0) {
+      setResult({ status: "error", error: "Masukkan nominal total belanja sesuai struk." });
+      setPhase("error");
+      return;
+    }
+
     busyRef.current = true;
     const generation = ++generationRef.current;
 
     clearTimers();
     setResult(null);
-    setPreviewUrl((old) => {
-      if (old) URL.revokeObjectURL(old);
-      return URL.createObjectURL(file);
-    });
     setPhase("uploading");
 
     const formData = new FormData();
     formData.set("photo", file);
-
-    // Cosmetic stage labels layered on top of one real request: OCR,
-    // deterministic validation, and the DB write all happen inside a single
-    // atomic submitClaimReceipt call, so a claim is never created for a
-    // photo that ultimately fails validation.
-    timersRef.current.push(window.setTimeout(() => setPhase("reading"), 350));
-    timersRef.current.push(window.setTimeout(() => setPhase("processing"), 2200));
+    formData.set("amount", amount);
 
     const timeout = new Promise<ClaimReceiptState>((resolve) => {
       timersRef.current.push(
@@ -86,7 +87,7 @@ export function ClaimUploadFlow() {
     try {
       outcome = await Promise.race([submitClaimReceipt(formData), timeout]);
     } catch {
-      outcome = { status: "error", error: "Terjadi kesalahan saat memverifikasi struk. Silakan coba lagi." };
+      outcome = { status: "error", error: "Terjadi kesalahan saat mengirim struk. Silakan coba lagi." };
     }
 
     // The real request may still be in flight after the client timeout won
@@ -105,6 +106,8 @@ export function ClaimUploadFlow() {
     clearTimers();
     busyRef.current = false;
     setResult(null);
+    setFile(null);
+    setAmount("");
     setPreviewUrl((old) => {
       if (old) URL.revokeObjectURL(old);
       return null;
@@ -112,34 +115,63 @@ export function ClaimUploadFlow() {
     setPhase("idle");
   }
 
-  const busy = phase === "uploading" || phase === "reading" || phase === "processing";
+  const busy = phase === "uploading";
 
   return (
     <div className="space-y-4">
       {phase === "idle" && (
-        <label
-          htmlFor="claim-photo"
-          className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-cream-200 bg-cream-50 px-6 py-10 text-center transition hover:border-gold-400 dark:border-plum-500/40 dark:bg-plum-600/40"
-        >
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cream-100 text-gold-500 dark:bg-plum-500/30">
-            <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-              <path d="M12 16V4M12 4l-4 4M12 4l4 4" />
-              <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-            </svg>
-          </span>
-          <span className="text-sm font-bold text-plum-600 dark:text-cream-100">Upload Foto Struk</span>
-          <span className="text-xs text-plum-400 dark:text-cream-100/60">JPG, PNG, atau WEBP — maksimal 5MB</span>
-          <input
-            id="claim-photo"
-            type="file"
-            accept={SUPPORTED_TYPES}
-            className="sr-only"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void handleFile(file);
-            }}
-          />
-        </label>
+        <div className="space-y-4">
+          <label
+            htmlFor="claim-photo"
+            className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-cream-200 bg-cream-50 px-6 py-10 text-center transition hover:border-gold-400 dark:border-plum-500/40 dark:bg-plum-600/40"
+          >
+            {previewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- transient local object URL preview, not a Next-optimizable asset
+              <img src={previewUrl} alt="Preview struk yang dipilih" className="h-28 w-28 rounded-xl object-cover" />
+            ) : (
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cream-100 text-gold-500 dark:bg-plum-500/30">
+                <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+                  <path d="M12 16V4M12 4l-4 4M12 4l4 4" />
+                  <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                </svg>
+              </span>
+            )}
+            <span className="text-sm font-bold text-plum-600 dark:text-cream-100">
+              {file ? "Ganti Foto Struk" : "Upload Foto Struk"}
+            </span>
+            <span className="text-xs text-plum-400 dark:text-cream-100/60">JPG, PNG, atau WEBP — maksimal 5MB</span>
+            <input
+              id="claim-photo"
+              type="file"
+              accept={SUPPORTED_TYPES}
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) pickFile(f);
+              }}
+            />
+          </label>
+
+          {file && (
+            <div className="space-y-2">
+              <label htmlFor="claim-amount" className="text-xs font-bold text-plum-600 dark:text-cream-100">
+                Nominal Total Belanja (sesuai struk)
+              </label>
+              <Input
+                id="claim-amount"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                placeholder="Contoh: 250000"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+              <Button className="w-full" onClick={handleSubmit}>
+                Kirim untuk Review
+              </Button>
+            </div>
+          )}
+        </div>
       )}
 
       {busy && (
@@ -167,28 +199,17 @@ export function ClaimUploadFlow() {
             <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
               <path d="M20 6L9 17l-5-5" />
             </svg>
-            <span>Struk valid — pembelian Series Agustin terverifikasi.</span>
+            <span>Struk berhasil dikirim dan menunggu review dari tim Aurora Hijab.</span>
           </div>
 
           <div className="card">
-            <p className="section-title mb-3">Hasil Verifikasi Struk</p>
+            <p className="section-title mb-3">Struk Kamu</p>
             <div className="kv">
               <p className="kv-k">Nama Cabang</p>
               <p className="kv-v">{result.branchName}</p>
             </div>
-            <div className="py-2.5">
-              <p className="kv-k mb-1.5">Item yang Dibeli</p>
-              <ul className="list-disc space-y-1 pl-[18px] text-[13px] text-plum-600 dark:text-cream-100">
-                {result.items.map((it, i) => (
-                  <li key={i}>
-                    {it.name}
-                    {it.qty > 1 ? ` × ${it.qty}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </div>
             <div className="kv">
-              <p className="kv-k">Total Bill</p>
+              <p className="kv-k">Total Belanja</p>
               <p className="kv-v">{formatIDR(result.total)}</p>
             </div>
           </div>

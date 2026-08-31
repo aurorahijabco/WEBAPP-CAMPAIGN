@@ -28,6 +28,12 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password wajib diisi"),
 });
 
+export const claimReceiptSchema = z.object({
+  amount: z.coerce
+    .number({ invalid_type_error: "Nominal total belanja wajib diisi" })
+    .positive("Nominal total belanja harus lebih dari 0"),
+});
+
 export const contentSubmissionSchema = z.object({
   claimId: z.string().uuid(),
   type: z.enum(["story", "feed_photo", "feed_reels"]),

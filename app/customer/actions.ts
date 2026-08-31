@@ -3,9 +3,7 @@
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/session";
-import { contentSubmissionSchema } from "@/lib/business/validation";
-import { extractReceiptData } from "@/lib/business/ocr";
-import { validateReceiptOcr, hasSeriesAgustinItem } from "@/lib/business/receiptValidation";
+import { contentSubmissionSchema, claimReceiptSchema } from "@/lib/business/validation";
 import { writeAuditLog } from "@/lib/business/auditLog";
 import { revalidatePath } from "next/cache";
 
@@ -15,68 +13,21 @@ const PG_UNIQUE_VIOLATION = "23505";
 const DUPLICATE_RECEIPT_MESSAGE = "Struk ini sudah pernah digunakan untuk klaim sebelumnya.";
 const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 
-export type ClaimReceiptItem = { name: string; qty: number; price: number };
-
 export type ClaimReceiptState =
-  | { status: "valid"; claimId: string; branchName: string; items: ClaimReceiptItem[]; total: number }
+  | { status: "valid"; claimId: string; branchName: string; total: number }
   | { status: "invalid"; reason: string }
   | { status: "error"; error: string };
 
-/** Lowercases and strips everything but letters/digits, so punctuation/spacing
- * differences between how a POS prints a branch name and how it's stored in
- * `branches` (e.g. "CABANG DAGO" vs "Aurora Hijab Dago, Bandung") don't
- * prevent a match. */
-function normalizeForMatch(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
-}
-
-/** "Aurora Hijab Dago, Bandung" -> "Dago" — the distinctive area name a
- * receipt is far more likely to print than the full formal branch name. */
-function branchAreaFromName(name: string): string {
-  const withoutBrand = name.replace(/^aurora hijab\s*/i, "");
-  return withoutBrand.split(",")[0]?.trim() ?? withoutBrand;
-}
-
 /**
- * Resolves the branch a receipt was purchased at from whatever merchant text
- * Gemini read off it. Tried in order of specificity: the branch's own short
- * `code` (e.g. "DAGO"), its area name (e.g. "Dago"), then its full formal
- * name — each compared with punctuation/spacing normalized out, since a
- * receipt header rarely matches the DB's full "Aurora Hijab X, City" string
- * verbatim.
- */
-function resolveBranchFromMerchant<T extends { id: string; name: string; code: string }>(
-  merchantName: string | null,
-  branches: T[]
-): T | null {
-  if (!merchantName) return null;
-  const merchant = normalizeForMatch(merchantName);
-  if (!merchant) return null;
-
-  for (const b of branches) {
-    const code = normalizeForMatch(b.code);
-    if (code && merchant.includes(code)) return b;
-  }
-  for (const b of branches) {
-    const area = normalizeForMatch(branchAreaFromName(b.name));
-    if (area && merchant.includes(area)) return b;
-  }
-  for (const b of branches) {
-    const full = normalizeForMatch(b.name);
-    if (full && (merchant.includes(full) || full.includes(merchant))) return b;
-  }
-  return null;
-}
-
-/**
- * The entire "Claim" flow in one call: OCR the uploaded struk, validate it
- * deterministically, resolve which branch it belongs to, and — only if
- * everything checks out — create the bill + claim rows. There is no
- * separate "confirm"/submit step and no branch/amount/item form fields
- * anymore: every piece of data that ends up in the database is either the
- * customer's own session (`user.id`) or something Gemini read off the photo
- * and this function re-verified in plain code. Nothing is trusted from the
- * client beyond the raw image bytes.
+ * The "Claim" flow, without any automated OCR verification: uploads the
+ * struk photo and creates the bill + claim rows with `HOLD` status
+ * ("menunggu review"), so a Super Admin can manually inspect the photo and
+ * approve (VALID) or reject (INVALID) it — see app/admin/receipts. Nothing
+ * is trusted from the client beyond the raw image bytes and the
+ * customer-declared total (which the admin verifies visually against the
+ * photo during manual review; it is never used to auto-approve anything).
+ * The purchase branch is always the customer's own registered branch
+ * (set at signup) — never inferred or entered manually here.
  *
  * Called directly from the client (not via useActionState/<form action>),
  * so it never redirects — the caller decides when to navigate to
@@ -93,12 +44,15 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
   const photo = formData.get("photo") as File | null;
   if (!photo || photo.size === 0) return { status: "error", error: "Foto struk wajib diunggah." };
   if (photo.size > 5 * 1024 * 1024) return { status: "error", error: "Ukuran foto maksimal 5MB." };
-  // Restricted to the image formats Gemini Vision reliably accepts, rather
-  // than a blanket "image/*" — an unsupported format (gif, svg, ...) would
-  // otherwise reach the OCR call and fail unpredictably.
   if (!SUPPORTED_IMAGE_TYPES.has(photo.type)) {
     return { status: "error", error: "Format file harus JPG, PNG, atau WEBP." };
   }
+
+  const parsedAmount = claimReceiptSchema.safeParse({ amount: formData.get("amount") });
+  if (!parsedAmount.success) {
+    return { status: "error", error: parsedAmount.error.issues[0]?.message ?? "Nominal total belanja tidak valid" };
+  }
+  const declaredAmount = parsedAmount.data.amount;
 
   const photoBuffer = Buffer.from(await photo.arrayBuffer());
   const photoHash = createHash("sha256").update(photoBuffer).digest("hex");
@@ -112,8 +66,11 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
     metadata: { photoHash, sizeBytes: photo.size, mimeType: photo.type },
   });
 
-  // Hard anti-duplicate check #1: the exact same photo bytes can never back
-  // a second claim. Checked before spending an OCR call.
+  // Hard anti-duplicate check: the exact same photo bytes can never back a
+  // second claim. The DB's unique index on photo_hash is the authoritative
+  // guard against a race with the insert below; this pre-check only exists
+  // to return a friendly message instead of a raw constraint-violation error
+  // in the common case.
   const { data: existingByHash } = await supabase.from("bills").select("id").eq("photo_hash", photoHash).maybeSingle();
   if (existingByHash) {
     await writeAuditLog({
@@ -127,131 +84,20 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
     return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
   }
 
-  const [{ data: branches }, { data: periodSetting }, { data: minAmountSetting }, { data: profile }] = await Promise.all([
-    supabase.from("branches").select("id, name, code").eq("active", true),
-    supabase.from("campaign_settings").select("value").eq("key", "redemption_period").maybeSingle(),
-    supabase.from("campaign_settings").select("value").eq("key", "min_claim_amount").maybeSingle(),
-    supabase.from("profiles").select("branch_id").eq("id", user.id).single(),
-  ]);
-
-  const ocrOutcome = await extractReceiptData(photoBuffer, photo.type);
-  if (!ocrOutcome.ok) {
-    await writeAuditLog({
-      action: "ocr_failed",
-      status: "failed",
-      actor,
-      entityType: "bill",
-      branchId: user.branchId,
-      metadata: { photoHash, error: ocrOutcome.error },
-    });
-    return { status: "error", error: ocrOutcome.error };
-  }
-  const ocr = ocrOutcome.data;
-  await writeAuditLog({
-    action: "ocr_success",
-    status: "success",
-    actor,
-    entityType: "bill",
-    branchId: user.branchId,
-    metadata: { photoHash, merchantName: ocr.merchant_name, quality: ocr.quality, total: ocr.total },
-  });
-
-  // Branch is resolved from what the OCR read off the receipt — never from
-  // a form field, since there isn't one anymore. If the merchant text on
-  // the struk doesn't clearly match a known branch, fall back to the
-  // customer's own registered branch (set at signup, e.g. via a branch QR
-  // code) — still not manual input at claim time. Only if neither resolves
-  // do we have no legal branch_id to store (bills/claims require one).
-  const branchList = branches ?? [];
-  const resolvedBranch =
-    resolveBranchFromMerchant(ocr.merchant_name, branchList) ?? branchList.find((b) => b.id === profile?.branch_id) ?? null;
-  if (!resolvedBranch) {
+  const { data: branch } = await supabase.from("branches").select("id, name").eq("id", user.branchId).maybeSingle();
+  if (!branch) {
     await writeAuditLog({
       action: "claim_invalid",
       status: "failed",
       actor,
       entityType: "bill",
-      metadata: { reason: "branch_not_resolved", merchantName: ocr.merchant_name },
+      metadata: { reason: "branch_not_resolved" },
     });
     return {
       status: "invalid",
-      reason: "Cabang pembelian tidak dapat dikenali dari struk. Pastikan nama cabang terlihat jelas pada foto, lalu upload ulang.",
+      reason: "Cabang akun kamu belum terdaftar dengan benar. Hubungi CS Aurora Hijab sebelum mengunggah struk.",
     };
   }
-
-  const period = periodSetting?.value as { start: string; end: string } | undefined;
-  const redemptionPeriodEnd = period?.end ? new Date(period.end) : null;
-  const minClaimAmount = typeof minAmountSetting?.value === "number" ? minAmountSetting.value : 0;
-
-  const validation = validateReceiptOcr(ocr, {
-    redemptionPeriodEnd,
-    minClaimAmount,
-    branchName: resolvedBranch.name,
-  });
-  if (!validation.ok) {
-    await writeAuditLog({
-      action: "claim_invalid",
-      status: "failed",
-      actor,
-      entityType: "bill",
-      branchId: resolvedBranch.id,
-      branchName: resolvedBranch.name,
-      metadata: { reason: validation.error },
-    });
-    return { status: "invalid", reason: validation.error ?? "Struk tidak valid, silakan upload ulang." };
-  }
-
-  // The campaign's core eligibility rule — from OCR items only, never
-  // anything the customer could type.
-  if (!hasSeriesAgustinItem(ocr.items)) {
-    await writeAuditLog({
-      action: "claim_invalid",
-      status: "failed",
-      actor,
-      entityType: "bill",
-      branchId: resolvedBranch.id,
-      branchName: resolvedBranch.name,
-      metadata: { reason: "series_agustin_not_found" },
-    });
-    return {
-      status: "invalid",
-      reason: 'Struk tidak menunjukkan pembelian "Series Agustin". Pastikan item ini tercantum jelas pada struk, lalu upload ulang.',
-    };
-  }
-
-  const verifiedAmount = ocr.total as number; // non-null, enforced by validateReceiptOcr
-
-  // Hard anti-duplicate check #2: same physical receipt (by its printed
-  // number) claimed twice at the same branch. The DB has a matching unique
-  // index as the authoritative guard against a race between this check and
-  // the insert below; this pre-check only exists to return a friendly
-  // message instead of a raw constraint-violation error in the common case.
-  if (ocr.receipt_number) {
-    const { data: existingByReceiptNumber } = await supabase
-      .from("bills")
-      .select("id")
-      .eq("branch_id", resolvedBranch.id)
-      .eq("receipt_number", ocr.receipt_number)
-      .maybeSingle();
-    if (existingByReceiptNumber) {
-      await writeAuditLog({
-        action: "claim_invalid",
-        status: "failed",
-        actor,
-        entityType: "bill",
-        branchId: resolvedBranch.id,
-        branchName: resolvedBranch.name,
-        metadata: { reason: "duplicate_receipt_number", receiptNumber: ocr.receipt_number },
-      });
-      return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
-    }
-  }
-
-  const items: ClaimReceiptItem[] = (ocr.items ?? []).map((it) => ({
-    name: it.name ?? "-",
-    qty: it.qty ?? 1,
-    price: it.price ?? 0,
-  }));
 
   const ext = photo.name.split(".").pop() || "jpg";
   const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
@@ -266,25 +112,25 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
       status: "failed",
       actor,
       entityType: "bill",
-      branchId: resolvedBranch.id,
-      branchName: resolvedBranch.name,
+      branchId: branch.id,
+      branchName: branch.name,
       metadata: { reason: "storage_upload_failed", error: uploadError.message },
     });
     return { status: "error", error: "Gagal mengunggah foto struk: " + uploadError.message };
   }
 
+  // Everything OCR used to auto-extract (item list, receipt number,
+  // merchant name) is intentionally left unset — a Super Admin now verifies
+  // the purchase and its details directly from the uploaded photo.
   const { data: bill, error: billError } = await supabase
     .from("bills")
     .insert({
       customer_id: user.id,
-      branch_id: resolvedBranch.id,
-      amount: verifiedAmount,
-      items,
+      branch_id: branch.id,
+      amount: declaredAmount,
+      items: [],
       photo_path: path,
       photo_hash: photoHash,
-      receipt_number: ocr.receipt_number,
-      merchant_name: ocr.merchant_name,
-      ocr_raw: ocr,
       status: "HOLD",
     })
     .select("id")
@@ -296,8 +142,8 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
         status: "failed",
         actor,
         entityType: "bill",
-        branchId: resolvedBranch.id,
-        branchName: resolvedBranch.name,
+        branchId: branch.id,
+        branchName: branch.name,
         metadata: { reason: "duplicate_receipt_unique_constraint" },
       });
       return { status: "invalid", reason: DUPLICATE_RECEIPT_MESSAGE };
@@ -307,8 +153,8 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
       status: "failed",
       actor,
       entityType: "bill",
-      branchId: resolvedBranch.id,
-      branchName: resolvedBranch.name,
+      branchId: branch.id,
+      branchName: branch.name,
       metadata: { reason: billError.message },
     });
     return { status: "error", error: "Gagal menyimpan struk: " + billError.message };
@@ -319,11 +165,9 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
     .from("claims")
     .insert({
       customer_id: user.id,
-      branch_id: resolvedBranch.id,
+      branch_id: branch.id,
       bill_id: bill.id,
       purchase_status: "HOLD",
-      flagged: validation.flagReasons.length > 0,
-      flag_reason: validation.flagReasons.length > 0 ? validation.flagReasons.join("; ") : null,
     })
     .select("id")
     .single();
@@ -334,35 +178,26 @@ export async function submitClaimReceipt(formData: FormData): Promise<ClaimRecei
       actor,
       entityType: "bill",
       entityId: bill.id,
-      branchId: resolvedBranch.id,
-      branchName: resolvedBranch.name,
+      branchId: branch.id,
+      branchName: branch.name,
       metadata: { reason: claimError?.message ?? "unknown error" },
     });
     return { status: "error", error: "Gagal membuat klaim: " + (claimError?.message ?? "") };
   }
 
   await writeAuditLog({
-    action: "claim_valid",
-    status: "success",
-    actor,
-    entityType: "claim",
-    entityId: claim.id,
-    branchId: resolvedBranch.id,
-    branchName: resolvedBranch.name,
-    metadata: { billId: bill.id, total: verifiedAmount, flagged: validation.flagReasons.length > 0 },
-  });
-  await writeAuditLog({
     action: "claim_created",
     status: "success",
     actor,
     entityType: "claim",
     entityId: claim.id,
-    branchId: resolvedBranch.id,
-    branchName: resolvedBranch.name,
+    branchId: branch.id,
+    branchName: branch.name,
+    metadata: { billId: bill.id, declaredAmount },
   });
 
   revalidatePath("/customer/dashboard");
-  return { status: "valid", claimId: claim.id, branchName: resolvedBranch.name, items, total: verifiedAmount };
+  return { status: "valid", claimId: claim.id, branchName: branch.name, total: declaredAmount };
 }
 
 export async function submitContent(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -384,7 +219,7 @@ export async function submitContent(_prev: ActionState, formData: FormData): Pro
   // application-level check is now the only thing enforcing it.
   const { data: claim } = await supabase
     .from("claims")
-    .select("id, customer_id")
+    .select("id, customer_id, purchase_status")
     .eq("id", parsed.data.claimId)
     .single();
   if (!claim || claim.customer_id !== user.id) {
@@ -397,6 +232,15 @@ export async function submitContent(_prev: ActionState, formData: FormData): Pro
       metadata: { attemptedAction: "content_submitted" },
     });
     return { error: "Klaim tidak ditemukan" };
+  }
+
+  // Content can only be submitted after a Super Admin has manually approved
+  // the struk/claim (purchase_status = VALID) — never while it's still
+  // HOLD (pending review) or after it's been rejected (INVALID). The UI
+  // hides the form outside this state, but the action itself must not
+  // trust that, since it can be invoked directly.
+  if (claim.purchase_status !== "VALID") {
+    return { error: "Klaim ini belum disetujui. Tunggu hasil review struk sebelum mengirim konten." };
   }
 
   // Anti-duplicate-submission guard: block a new submission for this tier

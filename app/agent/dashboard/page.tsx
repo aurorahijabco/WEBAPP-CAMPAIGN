@@ -12,17 +12,20 @@ export default async function AgentDashboard() {
 
   const { data: profile } = await supabase.from("profiles").select("branch_id").eq("id", user.id).single();
 
-  // Only the columns the Agent Dashboard actually renders — the voucher's
-  // code/id is never fetched here at all (not just hidden in the UI), since
-  // agents on this page should only ever see name/date/nominal/status.
+  // Only the columns the Agent Dashboard actually renders. Voucher `id`
+  // (primary key) and `code` (redeem code) are intentionally NEVER selected
+  // here — agents on this page may only ever see name/date/nominal/status.
+  // The redeem code is only ever revealed via the separate lookupVoucher
+  // action, which requires the agent to already have the code in hand from
+  // the customer at redemption time.
   const { data: vouchers } = await supabase
     .from("vouchers")
-    .select("id, status, value, redeemed_amount, redeemed_at, created_at, profiles!vouchers_customer_id_fkey(name)")
+    .select("status, value, redeemed_amount, redeemed_at, created_at, profiles!vouchers_customer_id_fkey(name)")
     .eq("branch_id", profile?.branch_id)
     .order("created_at", { ascending: false });
 
-  const active = vouchers?.filter((v) => v.status === "ACTIVE") ?? [];
-  const redeemed = vouchers?.filter((v) => v.status === "REDEEMED") ?? [];
+  const list = vouchers ?? [];
+  const countByStatus = (status: string) => list.filter((v) => v.status === status).length;
 
   return (
     <div className="space-y-6">
@@ -30,12 +33,20 @@ export default async function AgentDashboard() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="stat-box">
-          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{active.length}</p>
+          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{countByStatus("RESERVED")}</p>
+          <p className="mt-0.5 text-[11px] font-semibold text-plum-400 dark:text-cream-100/60">Reserved</p>
+        </div>
+        <div className="stat-box">
+          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{countByStatus("ACTIVE")}</p>
           <p className="mt-0.5 text-[11px] font-semibold text-plum-400 dark:text-cream-100/60">Voucher Aktif</p>
         </div>
         <div className="stat-box">
-          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{redeemed.length}</p>
+          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{countByStatus("REDEEMED")}</p>
           <p className="mt-0.5 text-[11px] font-semibold text-plum-400 dark:text-cream-100/60">Sudah Ditukar</p>
+        </div>
+        <div className="stat-box">
+          <p className="font-display text-2xl font-bold text-plum-600 dark:text-cream-100">{countByStatus("EXPIRED")}</p>
+          <p className="mt-0.5 text-[11px] font-semibold text-plum-400 dark:text-cream-100/60">Kedaluwarsa</p>
         </div>
       </div>
 
@@ -48,46 +59,31 @@ export default async function AgentDashboard() {
       </Link>
 
       <div>
-        <p className="section-title mb-3">Voucher Aktif di Cabang Ini</p>
-        {active.length ? (
+        <p className="section-title mb-3">Status Voucher di Cabang Ini</p>
+        <p className="mb-3 text-xs text-plum-400 dark:text-cream-100/60">
+          Daftar ini bersifat read-only. Perubahan status voucher hanya terjadi melalui proses redeem resmi.
+        </p>
+        {list.length ? (
           <div className="card divide-y divide-cream-200 p-2 dark:divide-plum-500/30">
-            {active.map((v: any) => (
-              <div key={v.id} className="flex items-center justify-between gap-3 px-2.5 py-3">
+            {list.map((v: any, i: number) => (
+              <div key={i} className="flex items-center justify-between gap-3 px-2.5 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-plum-600 dark:text-cream-100">{v.profiles?.name ?? "—"}</p>
-                  <p className="text-[11.5px] text-plum-400 dark:text-cream-100/60">{formatDate(v.created_at)}</p>
+                  <p className="text-[11.5px] text-plum-400 dark:text-cream-100/60">
+                    {formatDate(v.status === "REDEEMED" && v.redeemed_at ? v.redeemed_at : v.created_at)}
+                  </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-sm font-bold text-plum-600 dark:text-cream-100">{formatIDR(v.value)}</p>
+                  <p className="text-sm font-bold text-plum-600 dark:text-cream-100">
+                    {formatIDR(v.status === "REDEEMED" ? v.redeemed_amount ?? v.value : v.value)}
+                  </p>
                   <Badge status={v.status} />
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="empty card">Belum ada voucher aktif.</div>
-        )}
-      </div>
-
-      <div>
-        <p className="section-title mb-3">Riwayat Redeem</p>
-        {redeemed.length ? (
-          <div className="card divide-y divide-cream-200 p-2 dark:divide-plum-500/30">
-            {redeemed.map((v: any) => (
-              <div key={v.id} className="flex items-center justify-between gap-3 px-2.5 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-plum-600 dark:text-cream-100">{v.profiles?.name ?? "—"}</p>
-                  <p className="text-[11.5px] text-plum-400 dark:text-cream-100/60">{formatDate(v.redeemed_at)}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-sm font-bold text-plum-600 dark:text-cream-100">{formatIDR(v.redeemed_amount ?? v.value)}</p>
-                  <Badge status={v.status} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty card">Belum ada riwayat redeem.</div>
+          <div className="empty card">Belum ada voucher di cabang ini.</div>
         )}
       </div>
     </div>
