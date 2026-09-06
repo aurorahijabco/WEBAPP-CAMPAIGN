@@ -1,5 +1,7 @@
 # Aurora Hijab — Voucher Reward Campaign (Production)
 
+**Status:** 🟢 Live — https://webapp-campaign.vercel.app/
+
 Next.js 15 (App Router) + Supabase (Postgres, Storage — not Auth) + Vercel.
 
 Converts the original single-file HTML/localStorage prototype into a real,
@@ -14,17 +16,17 @@ and **Super Admin**.
 |------------|----------------------------------------------------|
 | Frontend   | Next.js 15 App Router, TypeScript, Tailwind CSS    |
 | Backend    | Supabase Postgres, Storage, SQL functions/triggers (RLS enabled, deny-by-default) |
-| Auth       | Custom username + bcrypt password + HttpOnly session cookie (no Supabase Auth) |
+| Auth       | Custom credential-based session auth (no Supabase Auth) |
 | Hosting    | Vercel (frontend) + Supabase Cloud (backend)       |
 | Repo       | GitHub → Vercel auto-deploy on push to `main`      |
 
 No business data is stored in `localStorage`. All state lives in Postgres.
 Authentication is entirely custom (see §6): Supabase Auth is not used at
-all. RLS stays enabled on every table as defense-in-depth, but since there
-is no Supabase-issued JWT to populate `auth.uid()`, authorization is
-enforced in application code — every authenticated read/write goes through
-the service-role client (`lib/supabase/admin.ts`) from server-only code that
-has already validated the caller's session (`lib/auth/session.ts`).
+all. RLS stays enabled on every table as defense-in-depth; authorization is
+enforced in application code, gated behind a validated server-side session.
+Implementation specifics are intentionally not documented here since this
+repo is public — see the `lib/auth/` source directly if you need to work on
+that layer.
 
 ---
 
@@ -195,20 +197,11 @@ Open http://localhost:3000
 Login/register are **username + password**, not email. There is no email,
 email verification, OTP, or magic link anywhere in this app.
 
-- Passwords are hashed with bcrypt (`lib/auth/password.ts`, cost 12) before
-  ever touching the database.
-- On successful register/login, `lib/auth/session.ts` generates a random
-  256-bit token, stores only its SHA-256 hash in `public.sessions`, and sets
-  the raw token as an `HttpOnly`, `SameSite=Lax` cookie (`Secure` in
-  production). Sessions expire after 30 days.
-- Logout (`components/nav/LogoutButton.tsx`) deletes the session row
-  server-side (not just the cookie), so a leaked/old token can't be reused.
-- `middleware.ts` → `lib/auth/middleware.ts` protects `/customer/*`,
-  `/agent/*`, `/admin/*`: it validates the session cookie against
-  `public.sessions` (via the service-role client, Edge-compatible) and
-  redirects based on `profiles.role` — never trusted from the client. Each
-  protected layout (`app/customer/layout.tsx` etc.) re-validates via
-  `getCurrentUser()` as defense-in-depth.
+Passwords are hashed before storage; sessions are cookie-based and validated
+server-side on every request to a protected route (`/customer/*`, `/agent/*`,
+`/admin/*`), with role checked from the database rather than trusted from the
+client. See `lib/auth/` for the actual mechanics — deliberately not spelled
+out here since this repo is public.
 
 Agents must have `profiles.branch_id` set (done by `scripts/seed-users.mjs`
 for demo agents, or manually by an admin for real agents — there is
@@ -277,39 +270,21 @@ branch/status/date) at `/admin/audit-log`.
 
 ## 10. Security checklist
 
-- RLS enabled on every table (never disabled) — after the custom-auth
-  migration (`0003_custom_auth.sql`), authenticated-data tables have **no**
-  permissive policy left (default-deny for `anon`/`authenticated`), because
-  there is no Supabase-issued JWT to populate `auth.uid()` anymore. Every
-  real read/write goes through the service-role client, authorized in
-  application code by `getCurrentUser()`.
-- `SUPABASE_SERVICE_ROLE_KEY` is only imported in `lib/supabase/admin.ts`,
-  which uses `import "server-only"` to fail the build if ever imported from
-  client code. It is now used broadly (all authenticated Server
-  Actions/Components) since it's the only client that can read/write
-  post-migration — never exposed to the browser.
-- Passwords are hashed with bcrypt (cost 12); session tokens are random
-  256-bit values whose SHA-256 hash (not the raw token) is stored in
-  `public.sessions`; the raw token lives only in an `HttpOnly` cookie
-  (`lib/auth/session.ts`) — never in `localStorage` or client JS.
-- All mutations run through Server Actions or Route Handlers — no direct
-  client-side writes to sensitive tables (vouchers/notifications are only
-  ever written by SECURITY DEFINER SQL functions/triggers, not by direct
-  client INSERT).
-- All form inputs are validated server-side with `zod` (`lib/business/validation.ts`)
-  in addition to HTML5 `required`/`type` attributes.
-- Storage bucket `receipts` is private; storage.objects RLS has no
-  permissive policy either post-migration (see `0004_storage_custom_auth.sql`)
-  — upload and signed-URL generation both happen server-side via the
-  service-role client after a session check.
-- No secrets committed — `.env*`, `scripts/.seed-credentials.json` are
-  gitignored. `.env.example` documents required vars without values.
+This repo is public, so implementation specifics that would help an attacker
+are intentionally not detailed here — see the source under `lib/auth/`,
+`lib/supabase/`, and the `supabase/migrations/` RLS policies directly if you
+need to work on this layer. At a high level:
 
-### Rate limiting
-Not implemented in v1 (out of scope for a Vercel + Supabase MVP without a
-dedicated edge KV store). If needed, add Upstash Redis + `@upstash/ratelimit`
-in the Server Actions for `createClaim`, `submitContent`, and
-`redeem_voucher`, keyed by user id / IP.
+- RLS is enabled on every table; authorization is enforced in server-side
+  application code, not left to the client.
+- Server-only secrets are confined to server-only code paths and never
+  exposed to the browser.
+- All mutations go through Server Actions / Route Handlers with server-side
+  validation — no direct client writes to sensitive tables.
+- The `receipts` storage bucket is private; file access is only ever
+  brokered server-side.
+- No secrets are committed — `.env*` and generated credential files are
+  gitignored.
 
 ---
 
