@@ -881,7 +881,7 @@ on conflict (code) do nothing;
 -- Campaign settings
 insert into public.campaign_settings (key, value) values
   ('redemption_period', jsonb_build_object(
-      'start', '2026-10-05T00:00:00+07:00',
+      'start', '2026-09-29T00:00:00+07:00',
       'end',   '2026-11-02T23:59:59+07:00'
   )),
   ('reward_tiers', jsonb_build_object(
