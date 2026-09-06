@@ -34,12 +34,12 @@ has already validated the caller's session (`lib/auth/session.ts`).
 app/
   (auth)/           # register, login, agent-login, admin-login + shared actions.ts
   customer/         # dashboard, claims (new/detail), vouchers, notifications, profile
-  agent/            # dashboard, redeem
+  agent/            # dashboard (incl. per-branch registration QR card), redeem
   admin/            # overview, claims, receipts (bill verification), content review,
-                     # vouchers monitor, branches
+                     # vouchers monitor, branches, agents, audit-log
   api/cron/         # Vercel Cron endpoint that sweeps voucher phase (RESERVED/ACTIVE/EXPIRED)
 components/
-  ui/               # Button, Card, Badge, Field (Input/Select/Textarea)
+  ui/               # Button, Card, Badge, Field (Input/Select/Textarea, password show/hide)
   nav/              # BottomNav (customer), SidebarNav (agent/admin), LogoutButton
 lib/
   auth/             # crypto.ts (edge-safe token gen/hash), password.ts (bcrypt),
@@ -57,6 +57,11 @@ supabase/
   migrations/0003_custom_auth.sql   # drops Supabase Auth dependency, adds
                                      # profiles.password_hash + sessions table
   migrations/0004_storage_custom_auth.sql # tightens receipts bucket policies to match
+  migrations/0005_redeem_uses_voucher_value.sql # redeem amount defaults to voucher value
+  migrations/0006_agent_delete_fk_safety.sql     # FK safety when deleting agents
+  migrations/0007_qr_branch_tracking.sql         # branches.code used for QR registration links
+  migrations/0008_receipt_ocr.sql                # ocr_raw column (see §7)
+  migrations/0009_audit_logs.sql                 # audit_logs table (see §9)
 scripts/
   seed-users.mjs    # creates demo accounts (admin/agents/customer) with hashed passwords
 middleware.ts       # route protection for /customer, /agent, /admin
@@ -209,6 +214,15 @@ Agents must have `profiles.branch_id` set (done by `scripts/seed-users.mjs`
 for demo agents, or manually by an admin for real agents — there is
 intentionally no self-service agent signup in v1).
 
+Password fields (login/register/agent-login/admin-login) have a show/hide
+toggle (`components/ui/Field.tsx` `PasswordInput`) — cosmetic only, no
+change to validation or session handling.
+
+Each agent's dashboard shows a QR code (`app/agent/dashboard/BranchQrCard.tsx`)
+encoding that agent's own branch registration link (`/?branch=<branches.code>`),
+resolved server-side from the agent's session `branch_id` — an agent can
+never view or generate a QR for another branch.
+
 ---
 
 ## 7. OCR (receipts)
@@ -218,7 +232,7 @@ admin verification (`/admin/receipts`). The schema has an `ocr_raw jsonb`
 column reserved for a future integration (Google Cloud Vision, AWS Textract,
 etc.) — plug it in by:
 1. Calling the OCR provider right after the Storage upload in
-   `app/customer/actions.ts::createClaim`.
+   `app/customer/actions.ts::submitClaimReceipt`.
 2. Writing the raw OCR response into `bills.ocr_raw`.
 3. Optionally auto-setting `status = 'VALID'` when OCR confidence is high
    (keep a human-review fallback for everything else).
@@ -245,7 +259,23 @@ To add it later:
 
 ---
 
-## 9. Security checklist
+## 9. Audit log (Super Admin)
+
+Server-side actions write to `public.audit_logs` (`0009_audit_logs.sql`):
+auth events, claim/OCR outcomes, content/voucher lifecycle transitions,
+admin writes on agents/branches, and unauthorized access attempts. Writes
+happen only from trusted server code (never the client) and never fail the
+underlying action if logging itself errors.
+
+RLS is enabled with **no policies** — same deny-by-default pattern as
+`sessions` — so only the service-role client, gated by the existing
+admin-only `/admin` layout, can read it; Customers and Agents have no path
+to view or tamper with entries. Browsable, filterable (search, action/role/
+branch/status/date) at `/admin/audit-log`.
+
+---
+
+## 10. Security checklist
 
 - RLS enabled on every table (never disabled) — after the custom-auth
   migration (`0003_custom_auth.sql`), authenticated-data tables have **no**
@@ -283,12 +313,13 @@ in the Server Actions for `createClaim`, `submitContent`, and
 
 ---
 
-## 10. Known v1 limitations / assumptions (documented, not silently changed)
+## 11. Known v1 limitations / assumptions (documented, not silently changed)
 
 - Phone/OTP/email auth is not implemented; username + password only, via a
   custom session (see §6) — Supabase Auth is not used.
 - Agent accounts are provisioned by admin/seed script, not self-registered.
-- OCR defaults to manual admin review (see §7).
+- OCR defaults to manual admin review (see §7) — a Gemini Vision
+  integration was tried and later removed in favor of this manual flow.
 - WhatsApp push is a documented integration point, not implemented (see §8).
 - `redeem_voucher` amount is entered by the agent at redeem time (not forced
   to the reference price) so partial/adjusted redemptions can be recorded if
@@ -297,7 +328,7 @@ in the Server Actions for `createClaim`, `submitContent`, and
 
 ---
 
-## 11. Regenerating fully-typed Supabase types (optional, recommended)
+## 12. Regenerating fully-typed Supabase types (optional, recommended)
 
 ```bash
 npx supabase gen types typescript --project-id YOUR_PROJECT_REF > types/database.types.ts
